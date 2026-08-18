@@ -1,0 +1,4 @@
+track1_worker_node/models/meta-llama-3.1-8b-instruct-abliterated.Q4_K_M.gguf
+.venv/
+__pycache__/
+*.py[cod]
