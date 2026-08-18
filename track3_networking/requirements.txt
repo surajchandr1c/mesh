@@ -1,0 +1,8 @@
+redis>=5.0.0
+aioredis>=2.0.1
+websockets>=12.0
+grpcio>=1.62.0
+grpcio-tools>=1.62.0
+protobuf>=4.25.0
+pydantic>=2.5.0
+asyncio>=3.4.3
