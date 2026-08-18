@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: volunpc-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --save "" --appendonly no
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  orchestrator:
+    build: .
+    container_name: volunpc-orchestrator
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - JWT_SECRET_KEY=volunpc-secret-key-change-in-production-12345
+      - NODE_API_KEY=mesh-node-secret-key-v1
+    depends_on:
+      redis:
+        condition: service_healthy
