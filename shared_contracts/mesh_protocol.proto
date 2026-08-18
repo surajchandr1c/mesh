@@ -6,12 +6,31 @@ message TaskRequest {
   string task_id = 1;
   string prompt = 2;
   int32 max_tokens = 3;
+  string session_id = 4;
+  string target_model = 5;
+  int32 priority = 6;
+  float temperature = 7;
+  double created_at = 8;
 }
 
 message TokenChunk {
   string task_id = 1;
   string token = 2;
   bool is_final = 3;
+  string node_id = 4;
+  int32 chunk_index = 5;
+  double timestamp = 6;
+  string error = 7;
+}
+
+message HardwareStats {
+  float cpu_utilization_pct = 1;
+  float ram_free_mb = 2;
+  float ram_total_mb = 3;
+  bool gpu_available = 4;
+  float vram_free_mb = 5;
+  float vram_total_mb = 6;
+  float temperature_c = 7;
 }
 
 message HeartbeatPing {
@@ -19,10 +38,15 @@ message HeartbeatPing {
   float cpu_utilization = 2;
   float ram_available_mb = 3;
   bool is_ready = 4;
+  double timestamp = 5;
+  string status = 6;
+  string current_task_id = 7;
+  HardwareStats hardware = 8;
 }
 
 message HeartbeatAck {
   bool received = 1;
+  double server_timestamp = 2;
 }
 
 service MeshNodeService {
