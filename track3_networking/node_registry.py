@@ -108,3 +108,11 @@ class NodeRegistry:
             }
             for node_id, entry in self._nodes.items()
         }
+
+
+_DEFAULT_NODE_REGISTRY = NodeRegistry()
+
+
+def get_node_registry() -> NodeRegistry:
+    """Return the shared in-memory registry used by Track 3 services."""
+    return _DEFAULT_NODE_REGISTRY

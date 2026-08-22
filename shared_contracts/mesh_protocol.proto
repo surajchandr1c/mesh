@@ -11,6 +11,8 @@ message TaskRequest {
   int32 priority = 6;
   float temperature = 7;
   double created_at = 8;
+  string user_id = 9;
+  bool rag_enabled = 10;
 }
 
 message TokenChunk {
@@ -21,6 +23,8 @@ message TokenChunk {
   int32 chunk_index = 5;
   double timestamp = 6;
   string error = 7;
+  string subtask_id = 8;
+  bool is_last = 9;
 }
 
 message HardwareStats {
@@ -49,7 +53,35 @@ message HeartbeatAck {
   double server_timestamp = 2;
 }
 
+message TaskDispatchNotice {
+  string task_id = 1;
+  string subtask_id = 2;
+  string prompt = 3;
+  int32 max_tokens = 4;
+  float temperature = 5;
+}
+
+message DispatchResponse {
+  bool success = 1;
+  string assigned_node = 2;
+  string message = 3;
+}
+
+message TokenPayload {
+  string task_id = 1;
+  string subtask_id = 2;
+  int32 chunk_index = 3;
+  string token = 4;
+  bool is_last = 5;
+  double timestamp = 6;
+}
+
 service MeshNodeService {
   rpc ProcessTask(TaskRequest) returns (stream TokenChunk);
   rpc SendHeartbeat(HeartbeatPing) returns (HeartbeatAck);
+}
+
+service TaskExecutionService {
+  rpc DispatchTask(TaskDispatchNotice) returns (DispatchResponse);
+  rpc StreamSubtaskTokens(TaskDispatchNotice) returns (stream TokenPayload);
 }
