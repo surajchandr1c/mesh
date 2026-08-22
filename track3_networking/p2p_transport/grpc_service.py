@@ -68,12 +68,15 @@ def token_chunk_to_proto(chunk: TokenChunk) -> "pb2.TokenChunk":
     )
 
 
-def heartbeat_from_proto(request: "pb2.HeartbeatPing", is_ready: bool) -> HeartbeatPayload:
+def heartbeat_from_proto(request: "pb2.HeartbeatPing") -> HeartbeatPayload:
+    from shared_contracts.schemas import HardwareStats
     return HeartbeatPayload(
         node_id=request.node_id,
-        cpu_utilization=request.cpu_utilization,
-        ram_available_mb=request.ram_available_mb,
-        is_ready=is_ready,
+        hardware=HardwareStats(
+            cpu_utilization_pct=request.cpu_utilization,
+            ram_free_mb=request.ram_available_mb,
+            ram_total_mb=request.ram_available_mb * 2.0, # Guess total RAM dynamically
+        )
     )
 
 
@@ -119,17 +122,25 @@ class MeshNodeService(_BaseMeshNodeService):
             if self.readiness_probe is not None
             else HeartbeatPayload(
                 node_id=request.node_id,
-                cpu_utilization=request.cpu_utilization,
-                ram_available_mb=request.ram_available_mb,
-                is_ready=True,
             )
         )
-        heartbeat = heartbeat_from_proto(request, health.is_ready)
+        heartbeat = heartbeat_from_proto(request)
         heartbeat.status = health.status if hasattr(health, "status") else heartbeat.status
         heartbeat.current_task_id = health.current_task_id if hasattr(health, "current_task_id") else None
         heartbeat.hardware = health.hardware if hasattr(health, "hardware") else heartbeat.hardware
         heartbeat.rtt_ms = health.rtt_ms if hasattr(health, "rtt_ms") else heartbeat.rtt_ms
         self.registry.update_from_heartbeat(heartbeat)
+        
+        # Sync registration to Redis set if connected
+        if self.broker and self.broker._is_connected and self.broker.redis_client:
+            try:
+                from shared_contracts.constants import RedisKeys
+                await self.broker.redis_client.sadd(RedisKeys.ACTIVE_NODES, request.node_id)
+                # Keep active nodes fresh
+                await self.broker.redis_client.expire(RedisKeys.ACTIVE_NODES, 30)
+            except Exception as exc:
+                LOGGER.error("Failed to sync node heartbeat to Redis: %s", exc)
+                
         LOGGER.debug("Heartbeat received from %s", request.node_id)
         return pb2.HeartbeatAck(received=True, server_timestamp=time.time())
 
@@ -203,9 +214,9 @@ class MeshGrpcClient:
 
         request = pb2.HeartbeatPing(
             node_id=ping.node_id,
-            cpu_utilization=ping.cpu_utilization,
-            ram_available_mb=ping.ram_available_mb,
-            is_ready=ping.is_ready,
+            cpu_utilization=ping.hardware.cpu_utilization_pct,
+            ram_available_mb=ping.hardware.ram_free_mb,
+            is_ready=True,
         )
         ack = await self._stub.SendHeartbeat(request)
         return bool(ack.received)

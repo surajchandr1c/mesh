@@ -11,6 +11,8 @@ message TaskRequest {
   int32 priority = 6;
   float temperature = 7;
   double created_at = 8;
+  string user_id = 9;
+  bool rag_enabled = 10;
 }
 
 message TokenChunk {

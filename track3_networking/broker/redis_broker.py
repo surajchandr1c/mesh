@@ -36,7 +36,8 @@ class TaskBroker:
                 self.redis_client = redis.from_url(
                     self.redis_url, 
                     socket_timeout=2.0, 
-                    decode_responses=True
+                    decode_responses=True,
+                    protocol=2
                 )
                 await self.redis_client.ping()
                 self._is_connected = True

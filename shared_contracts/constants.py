@@ -1,7 +1,5 @@
-"""
-Redis key helper functions and constants for the Distributed AI Inference Mesh.
-Import RedisKeys class — never hardcode key strings inline.
-"""
+"""Redis key helper functions and constants for the Distributed AI Inference Mesh."""
+
 
 class RedisKeys:
     # Stream key for pending task dispatch
