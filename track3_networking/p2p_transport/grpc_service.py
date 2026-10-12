@@ -196,6 +196,11 @@ class MeshGrpcClient:
         self._stub: Optional[pb2_grpc.MeshNodeServiceStub] = None
 
     async def connect(self) -> None:
+        if self._channel is not None:
+            try:
+                await self._channel.close()
+            except Exception:
+                pass
         self._channel = grpc.aio.insecure_channel(self.target)
         self._stub = pb2_grpc.MeshNodeServiceStub(self._channel)
         LOGGER.info("Connected gRPC client to %s", self.target)
@@ -203,10 +208,12 @@ class MeshGrpcClient:
     async def close(self) -> None:
         if self._channel is not None:
             await self._channel.close()
+            self._channel = None
+            self._stub = None
 
     async def process_task(self, task: TaskRequest) -> AsyncIterator[TokenChunk]:
         if self._stub is None:
-            raise RuntimeError("MeshGrpcClient.connect() must be called first.")
+            await self.connect()
 
         request = pb2.TaskRequest(
             task_id=task.task_id,
@@ -226,9 +233,9 @@ class MeshGrpcClient:
             LOGGER.warning("Worker stream failed for task %s: %s", task.task_id, exc)
             raise
 
-    async def send_heartbeat(self, ping: HeartbeatPayload) -> bool:
+    async def send_heartbeat(self, ping: HeartbeatPayload, timeout: float = 5.0) -> bool:
         if self._stub is None:
-            raise RuntimeError("MeshGrpcClient.connect() must be called first.")
+            await self.connect()
 
         request = pb2.HeartbeatPing(
             node_id=ping.node_id,
@@ -236,7 +243,7 @@ class MeshGrpcClient:
             ram_available_mb=ping.hardware.ram_free_mb,
             is_ready=True,
         )
-        ack = await self._stub.SendHeartbeat(request)
+        ack = await self._stub.SendHeartbeat(request, timeout=timeout)
         return bool(ack.received)
 
     def task_stream_request(self, task: TaskRequest) -> "pb2.TaskRequest":

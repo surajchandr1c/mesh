@@ -14,7 +14,19 @@ except ImportError:  # Supports direct execution: python track1_worker_node/main
 
 
 import os
+import sys
 from pathlib import Path
+
+# Ensure project root is available in sys.path for direct execution
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 LOGGER = logging.getLogger(__name__)
 # Resolve models directory relative to this script's directory
