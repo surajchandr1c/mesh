@@ -1,0 +1,14 @@
+name: qthorium_mesh
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: qthorium-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+volumes:
+  redis_data:

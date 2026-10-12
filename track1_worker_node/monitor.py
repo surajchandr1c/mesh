@@ -63,6 +63,17 @@ class ResourceMonitor:
             and health["ram_utilization_percent"] < self._ram_threshold
         )
 
+    def get_canonical_heartbeat(self, node_id: str) -> dict[str, Any]:
+        """Compile the canonical heartbeat dictionary matching schema and dashboard expectations."""
+        health = self.get_system_health()
+        return {
+            "node_id": node_id,
+            "cpu_utilization": float(health["cpu_utilization_percent"]),
+            "ram_available_mb": float(health["ram_available_mb"]),
+            "is_ready": self.is_ready_for_task(),
+            "gpu_available": bool(health.get("gpu_available", False)),
+        }
+
 
 if __name__ == "__main__":
     monitor = ResourceMonitor()

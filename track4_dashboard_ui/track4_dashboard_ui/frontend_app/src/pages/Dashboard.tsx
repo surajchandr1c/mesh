@@ -29,7 +29,23 @@ export const Dashboard: React.FC = () => {
 
   return (
     <div className="page-content">
-      <h1 className="page-title">System Health Dashboard</h1>
+      <div className="page-header">
+        <div>
+          <div className="page-title-row">
+            <h1 className="page-title">System Health & Telemetry</h1>
+            <span className="live-pill">
+              <span className="live-dot" /> Mesh Active
+            </span>
+          </div>
+          <span className="page-subtitle">
+            Real-time multi-node consensus, worker health grading, and task dispatch metrics
+          </span>
+        </div>
+
+        <button className="icon-btn" onClick={refresh} title="Refresh Telemetry">
+          <Activity size={16} />
+        </button>
+      </div>
 
       {/* Grid of Metric Cards */}
       <div className="metrics-grid">
@@ -37,29 +53,29 @@ export const Dashboard: React.FC = () => {
           title="Workers Availability"
           value={`${(m.workers.availability_rate * 100).toFixed(1)}%`}
           subtitle={`${m.workers.active} Active / ${m.workers.total} Total`}
-          icon={<Server size={24} />}
-          iconColor="var(--primary)"
+          icon={<Server size={22} />}
+          iconColor="#3B82F6"
         />
         <MetricCard
           title="Resource Utilization"
           value={`CPU: ${m.resources.avg_cpu.toFixed(1)}%`}
           subtitle={`RAM: ${m.resources.avg_ram_mb.toFixed(0)} MB avg`}
-          icon={<Activity size={24} />}
-          iconColor="#2196F3"
+          icon={<Activity size={22} />}
+          iconColor="#06B6D4"
         />
         <MetricCard
           title="Active Tasks"
           value={m.tasks.processing}
           subtitle={`Completed: ${m.tasks.completed}`}
-          icon={<ClipboardCheck size={24} />}
-          iconColor="#FFC107"
+          icon={<ClipboardCheck size={22} />}
+          iconColor="#10B981"
         />
         <MetricCard
           title="Mesh Failovers"
           value={m.reliability.failover_count}
           subtitle={`Fail rate: ${(m.reliability.failure_rate * 100).toFixed(1)}%`}
-          icon={<Shield size={24} />}
-          iconColor="#F44336"
+          icon={<Shield size={22} />}
+          iconColor="#EF4444"
         />
       </div>
 

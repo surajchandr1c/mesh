@@ -66,6 +66,34 @@ app.add_middleware(
 
 app.include_router(api_router)
 
+# Initialize and Mount Track 4 Dashboard & Observability APIs on the Gateway
+try:
+    from track4_dashboard_ui.track4_dashboard_ui.backend.config import get_default_database_path
+    from track4_dashboard_ui.track4_dashboard_ui.backend.database.repositories import NodeRepository
+    from track4_dashboard_ui.track4_dashboard_ui.backend.node_registry import NodeRegistryService
+    from track4_dashboard_ui.track4_dashboard_ui.backend.metrics.collector import MetricsCollector
+    from track4_dashboard_ui.track4_dashboard_ui.backend.metrics.aggregator import MetricsAggregator
+    from track4_dashboard_ui.track4_dashboard_ui.backend.api.routes import nodes, tasks, events, metrics
+    from track4_dashboard_ui.track4_dashboard_ui.failover_engine import init_db
+
+    db_path = get_default_database_path()
+    init_db(db_path)
+    repository = NodeRepository(db_path)
+    registry_service = NodeRegistryService(repository)
+    metrics_collector = MetricsCollector(registry_service)
+    metrics_aggregator = MetricsAggregator(metrics_collector)
+
+    app.state.registry_service = registry_service
+    app.state.metrics_aggregator = metrics_aggregator
+
+    app.include_router(nodes.router, prefix="/api")
+    app.include_router(tasks.router, prefix="/api")
+    app.include_router(events.router, prefix="/api")
+    app.include_router(metrics.router, prefix="/api")
+    logger.info("Mounted Track 4 Dashboard & Observability APIs (/api/nodes, /api/tasks, /api/events, /api/metrics/summary).")
+except Exception as exc:
+    logger.warning("Could not mount Track 4 Dashboard APIs: %s", exc)
+
 
 @app.get("/health", status_code=status.HTTP_200_OK, tags=["system"])
 async def health_check(request: Request) -> dict[str, str]:

@@ -3,6 +3,7 @@ import { Worker } from '../types/worker';
 import { api } from '../services/api';
 import { WorkerStatusBadge } from '../components/WorkerStatusBadge';
 import { ArrowLeft, HardDrive } from 'lucide-react';
+import { formatDate } from '../utils/formatters';
 
 interface WorkerDetailsProps {
   nodeId: string;
@@ -104,8 +105,8 @@ export const WorkerDetails: React.FC<WorkerDetailsProps> = ({ nodeId, onBack }) 
         </div>
 
         <div style={{ marginTop: '16px' }}>
-          <span style={{ fontSize: '11px', color: 'grey', display: 'block', marginBottom: '4px' }}>Last Heartbeat Received</span>
-          <span style={{ fontSize: '14px', fontWeight: 'bold' }}>{w.last_seen}</span>
+          <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Last Heartbeat Received</span>
+          <span style={{ fontSize: '14px', fontWeight: 'bold', fontFamily: 'var(--font-mono)' }}>{formatDate(w.last_seen)}</span>
         </div>
       </div>
 

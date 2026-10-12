@@ -1,16 +1,18 @@
 # --- 1. System & Hardware Monitoring ---
-psutil==5.9.8
-GPUtil==1.4.0
+psutil>=5.9.8
+GPUtil>=1.4.0
 
 # --- 2. Core AI Execution Engine ---
 llama-cpp-python>=0.2.90
+ollama>=0.4.0
 
 # --- 3. Shared Data Contracts (Schema Enforcement) ---
-pydantic==2.6.3
+pydantic>=2.6.3
 
-# --- 4. Future Networking (Track 3 Integration) ---
-grpcio==1.62.0
-protobuf==4.25.3
+# --- 4. Networking & Broker Integration ---
+grpcio>=1.62.0
+protobuf>=4.25.3
+redis>=5.0.0
 
 # --- 5. Development & Testing Tools ---
-pytest==8.0.2
+pytest>=8.0.2

@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 
 # Adjust path to import from Track 1 and Track 4
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 from unittest.mock import MagicMock
 # Mock llama_cpp and local engine dependency to run tests without native compiled llama-cpp binaries
@@ -17,10 +18,17 @@ sys.modules['track1_worker_node.engine'] = MagicMock()
 
 from track1_worker_node.monitor import ResourceMonitor
 from track1_worker_node.main import get_stable_node_id
-from track4_dashboard_ui.backend.heartbeat.processor import HeartbeatProcessor
-from track4_dashboard_ui.backend.database.repositories import NodeRepository
-from track4_dashboard_ui.backend.node_registry import NodeRegistryService
-from track4_dashboard_ui.backend.failover.orchestrator_adapter import Track2OrchestratorAdapter
+
+try:
+    from track4_dashboard_ui.backend.heartbeat.processor import HeartbeatProcessor
+    from track4_dashboard_ui.backend.database.repositories import NodeRepository
+    from track4_dashboard_ui.backend.node_registry import NodeRegistryService
+    from track4_dashboard_ui.backend.failover.orchestrator_adapter import Track2OrchestratorAdapter
+except ModuleNotFoundError:
+    from backend.heartbeat.processor import HeartbeatProcessor
+    from backend.database.repositories import NodeRepository
+    from backend.node_registry import NodeRegistryService
+    from backend.failover.orchestrator_adapter import Track2OrchestratorAdapter
 
 
 class TestIntegrationContracts(unittest.TestCase):

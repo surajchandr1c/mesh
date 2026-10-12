@@ -5,7 +5,7 @@ import warnings
 
 from shared_contracts import mesh_protocol_pb2 as shared__contracts_dot_mesh__protocol__pb2
 
-GRPC_GENERATED_VERSION = '1.83.0'
+GRPC_GENERATED_VERSION = '1.84.0'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
@@ -129,6 +129,121 @@ class MeshNodeService:
             '/qthorium.mesh.MeshNodeService/SendHeartbeat',
             shared__contracts_dot_mesh__protocol__pb2.HeartbeatPing.SerializeToString,
             shared__contracts_dot_mesh__protocol__pb2.HeartbeatAck.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+
+class TaskExecutionServiceStub:
+    """Missing associated documentation comment in .proto file."""
+
+    def __init__(self, channel):
+        """Constructor.
+
+        Args:
+            channel: A grpc.Channel.
+        """
+        self.DispatchTask = channel.unary_unary(
+                '/qthorium.mesh.TaskExecutionService/DispatchTask',
+                request_serializer=shared__contracts_dot_mesh__protocol__pb2.TaskDispatchNotice.SerializeToString,
+                response_deserializer=shared__contracts_dot_mesh__protocol__pb2.DispatchResponse.FromString,
+                _registered_method=True)
+        self.StreamSubtaskTokens = channel.unary_stream(
+                '/qthorium.mesh.TaskExecutionService/StreamSubtaskTokens',
+                request_serializer=shared__contracts_dot_mesh__protocol__pb2.TaskDispatchNotice.SerializeToString,
+                response_deserializer=shared__contracts_dot_mesh__protocol__pb2.TokenPayload.FromString,
+                _registered_method=True)
+
+
+class TaskExecutionServiceServicer:
+    """Missing associated documentation comment in .proto file."""
+
+    def DispatchTask(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def StreamSubtaskTokens(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+
+def add_TaskExecutionServiceServicer_to_server(servicer, server):
+    rpc_method_handlers = {
+            'DispatchTask': grpc.unary_unary_rpc_method_handler(
+                    servicer.DispatchTask,
+                    request_deserializer=shared__contracts_dot_mesh__protocol__pb2.TaskDispatchNotice.FromString,
+                    response_serializer=shared__contracts_dot_mesh__protocol__pb2.DispatchResponse.SerializeToString,
+            ),
+            'StreamSubtaskTokens': grpc.unary_stream_rpc_method_handler(
+                    servicer.StreamSubtaskTokens,
+                    request_deserializer=shared__contracts_dot_mesh__protocol__pb2.TaskDispatchNotice.FromString,
+                    response_serializer=shared__contracts_dot_mesh__protocol__pb2.TokenPayload.SerializeToString,
+            ),
+    }
+    generic_handler = grpc.method_handlers_generic_handler(
+            'qthorium.mesh.TaskExecutionService', rpc_method_handlers)
+    server.add_generic_rpc_handlers((generic_handler,))
+    server.add_registered_method_handlers('qthorium.mesh.TaskExecutionService', rpc_method_handlers)
+
+
+ # This class is part of an EXPERIMENTAL API.
+class TaskExecutionService:
+    """Missing associated documentation comment in .proto file."""
+
+    @staticmethod
+    def DispatchTask(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/qthorium.mesh.TaskExecutionService/DispatchTask',
+            shared__contracts_dot_mesh__protocol__pb2.TaskDispatchNotice.SerializeToString,
+            shared__contracts_dot_mesh__protocol__pb2.DispatchResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def StreamSubtaskTokens(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/qthorium.mesh.TaskExecutionService/StreamSubtaskTokens',
+            shared__contracts_dot_mesh__protocol__pb2.TaskDispatchNotice.SerializeToString,
+            shared__contracts_dot_mesh__protocol__pb2.TokenPayload.FromString,
             options,
             channel_credentials,
             insecure,

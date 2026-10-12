@@ -6,9 +6,19 @@ import argparse
 import asyncio
 import logging
 
-from shared_contracts.schemas import HeartbeatPayload, TaskRequest, TokenChunk
+import sys
+from pathlib import Path
 
-from .p2p_transport.grpc_service import MeshGrpcServer, MeshNodeService, demo_token_stream
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from shared_contracts.schemas import HardwareStats, HeartbeatPayload, NodeStatus, TaskRequest, TokenChunk
+
+try:
+    from .p2p_transport.grpc_service import MeshGrpcServer, MeshNodeService, demo_token_stream
+except ImportError:
+    from track3_networking.p2p_transport.grpc_service import MeshGrpcServer, MeshNodeService, demo_token_stream
 
 LOGGER = logging.getLogger(__name__)
 
@@ -21,9 +31,12 @@ async def _execute_task(task: TaskRequest):
 def _readiness_probe() -> HeartbeatPayload:
     return HeartbeatPayload(
         node_id="track3-local-node",
-        cpu_utilization=0.0,
-        ram_available_mb=0.0,
-        is_ready=True,
+        status=NodeStatus.IDLE,
+        hardware=HardwareStats(
+            cpu_utilization_pct=0.0,
+            ram_free_mb=1024.0,
+            ram_total_mb=2048.0,
+        ),
     )
 
 

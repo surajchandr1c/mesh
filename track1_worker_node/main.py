@@ -18,9 +18,26 @@ from pathlib import Path
 
 LOGGER = logging.getLogger(__name__)
 # Resolve models directory relative to this script's directory
-MODEL_PATH = str(Path(__file__).resolve().parent / "models" / "meta-llama-3.1-8b-instruct-abliterated.Q4_K_M.gguf")
+MODEL_PATH = os.getenv("MODEL_PATH", str(Path(__file__).resolve().parent / "models" / "Llama-3.2-1B-Instruct-Q8_0.gguf"))
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2:1b")
 MOCK_PROMPT = "Explain distributed computing in simple terms."
 HEARTBEAT_INTERVAL_SECONDS = 5
+
+
+def get_stable_node_id() -> str:
+    """Return persistent node ID from environment variable or local .node_id storage."""
+    env_id = os.getenv("NODE_ID")
+    if env_id:
+        return env_id
+    node_file = Path(".node_id")
+    if node_file.exists():
+        content = node_file.read_text().strip()
+        if content:
+            return content
+    import uuid
+    generated_id = str(uuid.uuid4())
+    node_file.write_text(generated_id)
+    return generated_id
 
 
 def main() -> None:
@@ -32,7 +49,7 @@ def main() -> None:
 
     monitor = ResourceMonitor()
     try:
-        engine = LocalExecutionEngine(MODEL_PATH)
+        engine = LocalExecutionEngine(model_path=MODEL_PATH, model_name=OLLAMA_MODEL)
     except FileNotFoundError as error:
         LOGGER.critical("Worker cannot start because its model is unavailable: %s", error)
         return

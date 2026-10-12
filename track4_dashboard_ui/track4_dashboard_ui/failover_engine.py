@@ -11,13 +11,30 @@ import time
 import logging
 from datetime import datetime, timezone, timedelta
 
+import sys
+from pathlib import Path
+
+_TRACK4_DIR = Path(__file__).resolve().parent
+_PROJECT_ROOT = _TRACK4_DIR.parents[1]
+for _p in [str(_PROJECT_ROOT), str(_TRACK4_DIR)]:
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+
 # Import canonical components from our backend package
-from backend.database.repositories import NodeRepository
-from backend.node_registry import NodeRegistryService
-from backend.health_monitor import HealthMonitor
-from backend.failure_detector import FailureDetector
-from backend.failover.orchestrator_adapter import Track2OrchestratorAdapter
-from backend.failover.failover_engine import FailoverEngine as CanonicalFailoverEngine
+try:
+    from backend.database.repositories import NodeRepository
+    from backend.node_registry import NodeRegistryService
+    from backend.health_monitor import HealthMonitor
+    from backend.failure_detector import FailureDetector
+    from backend.failover.orchestrator_adapter import Track2OrchestratorAdapter
+    from backend.failover.failover_engine import FailoverEngine as CanonicalFailoverEngine
+except ImportError:
+    from track4_dashboard_ui.track4_dashboard_ui.backend.database.repositories import NodeRepository
+    from track4_dashboard_ui.track4_dashboard_ui.backend.node_registry import NodeRegistryService
+    from track4_dashboard_ui.track4_dashboard_ui.backend.health_monitor import HealthMonitor
+    from track4_dashboard_ui.track4_dashboard_ui.backend.failure_detector import FailureDetector
+    from track4_dashboard_ui.track4_dashboard_ui.backend.failover.orchestrator_adapter import Track2OrchestratorAdapter
+    from track4_dashboard_ui.track4_dashboard_ui.backend.failover.failover_engine import FailoverEngine as CanonicalFailoverEngine
 
 LOGGER = logging.getLogger("FailoverEngine")
 DEFAULT_DB_PATH = os.path.join(os.path.dirname(__file__), "node_registry.db")
@@ -97,6 +114,11 @@ def init_db(db_path: str = DEFAULT_DB_PATH) -> None:
         
         conn.commit()
         LOGGER.info("Database initialized and seeded with mock data.")
+
+    # Ensure existing tasks in database reflect current date
+    now_iso = datetime.now(timezone.utc).isoformat()
+    cursor.execute("UPDATE tasks SET updated_at = ? WHERE updated_at < '2026-10-01'", (now_iso,))
+    conn.commit()
 
     conn.close()
 

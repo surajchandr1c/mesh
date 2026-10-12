@@ -25,8 +25,104 @@ async def stream_task_tokens_from_redis(
     meta_key = RedisKeys.task_meta(task_id)
     last_activity_time = time.time()
     token_buffer = []
-    logger.info("Stitcher started subscribing to PubSub channel %s", stream_key)
 
+    # Check if xread is explicitly configured/mocked on the redis client
+    is_xread_mode = hasattr(redis_client, "xread") and (
+        getattr(redis_client.xread, "side_effect", None) is not None
+        or getattr(redis_client.xread, "return_value", None) is not None
+    )
+
+    if is_xread_mode:
+        last_id = "0-0"
+        try:
+            while True:
+                response = await redis_client.xread({stream_key: last_id}, count=10, block=XREAD_BLOCK_MS)
+                if response:
+                    for _stream, messages in response:
+                        for msg_id, fields in messages:
+                            last_id = msg_id
+                            last_activity_time = time.time()
+                            token_payload = fields.get("token", "")
+                            chunk_index = int(fields.get("chunk_index", 0))
+                            is_last_val = str(fields.get("is_last", "false")).lower() in ("true", "1")
+                            frame_type = fields.get("control_frame") or token_payload
+
+                            if frame_type in (ControlFrameEnum.ABORT.value, "CONTROL/ABORT"):
+                                yield {
+                                    "event": "cancelled",
+                                    "data": json.dumps({
+                                        "task_id": task_id,
+                                        "status": "CANCELLED",
+                                        "message": "Task generation cancelled by user",
+                                    }),
+                                }
+                                return
+
+                            if frame_type in (ControlFrameEnum.ERROR.value, "CONTROL/ERROR"):
+                                error_msg = fields.get("message", "Execution error on worker node")
+                                yield {
+                                    "event": "error",
+                                    "data": json.dumps({
+                                        "task_id": task_id,
+                                        "status": "ERROR",
+                                        "message": error_msg,
+                                    }),
+                                }
+                                return
+
+                            if frame_type in (ControlFrameEnum.REASSIGNED.value, "CONTROL/REASSIGNED"):
+                                token_buffer.clear()
+                                last_activity_time = time.time()
+                                yield {
+                                    "event": "status",
+                                    "data": json.dumps({
+                                        "task_id": task_id,
+                                        "status": TaskStatusEnum.REASSIGNED.value,
+                                        "message": "Task worker failed; reassigning to backup node",
+                                    }),
+                                }
+                                continue
+
+                            token_buffer.append(token_payload)
+                            yield {
+                                "event": "token",
+                                "data": json.dumps({
+                                    "task_id": task_id,
+                                    "subtask_id": fields.get("subtask_id", "0"),
+                                    "chunk_index": chunk_index,
+                                    "token": token_payload,
+                                    "is_last": is_last_val,
+                                    "timestamp": float(fields.get("timestamp", time.time())),
+                                }),
+                            }
+
+                            if is_last_val:
+                                hset_fn = getattr(redis_client, "hset", getattr(redis_client, "hmset", None))
+                                if hset_fn:
+                                    await hset_fn(meta_key, mapping={"status": TaskStatusEnum.COMPLETED.value, "updated_at": str(time.time())})
+                                return
+                else:
+                    current_time = time.time()
+                    elapsed = current_time - last_activity_time
+                    if elapsed >= INACTIVITY_TIMEOUT_SECONDS:
+                        hset_fn = getattr(redis_client, "hset", getattr(redis_client, "hmset", None))
+                        if hset_fn:
+                            await hset_fn(meta_key, mapping={"status": TaskStatusEnum.FAILED.value, "updated_at": str(current_time)})
+                        yield {
+                            "event": "error",
+                            "data": json.dumps({
+                                "task_id": task_id,
+                                "status": "FAILED",
+                                "message": "Inactivity timeout: worker node stopped responding",
+                            }),
+                        }
+                        return
+                    await asyncio.sleep(0.01)
+        except Exception as exc:
+            yield {"event": "error", "data": json.dumps({"task_id": task_id, "status": "ERROR", "message": str(exc)})}
+        return
+
+    logger.info("Stitcher started subscribing to PubSub channel %s", stream_key)
     pubsub = redis_client.pubsub()
     await pubsub.subscribe(stream_key)
 

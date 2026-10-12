@@ -13,11 +13,18 @@ export const MetricCard: React.FC<MetricCardProps> = ({
   value,
   subtitle,
   icon,
-  iconColor = 'var(--primary)',
+  iconColor = '#3B82F6',
 }) => {
   return (
     <div className="card metric-card">
-      <div className="metric-card-icon" style={{ backgroundColor: `${iconColor}14`, color: iconColor }}>
+      <div
+        className="metric-card-icon"
+        style={{
+          background: `linear-gradient(135deg, ${iconColor}22 0%, ${iconColor}0a 100%)`,
+          border: `1px solid ${iconColor}33`,
+          color: iconColor,
+        }}
+      >
         {icon}
       </div>
       <div className="metric-card-content">

@@ -15,7 +15,7 @@ const REQUEST_TIMEOUT_MS = parseInt(
  * Centralised API request wrapper with timeout, error handling,
  * and AbortController support for cleanup.
  */
-async function request<T>(path: string, signal?: AbortSignal): Promise<T> {
+async function request<T>(path: string, signal?: AbortSignal, options?: RequestInit): Promise<T> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
@@ -27,6 +27,7 @@ async function request<T>(path: string, signal?: AbortSignal): Promise<T> {
 
   try {
     const response = await fetch(`${BASE_URL}${path}`, {
+      ...options,
       signal: controller.signal,
     });
 
@@ -37,6 +38,8 @@ async function request<T>(path: string, signal?: AbortSignal): Promise<T> {
         const body = await response.json();
         if (body && body.message) {
           errorMessage = body.message;
+        } else if (body && body.detail) {
+          errorMessage = typeof body.detail === 'string' ? body.detail : JSON.stringify(body.detail);
         }
       } catch {
         // Could not parse JSON error body – use status text
@@ -56,11 +59,26 @@ async function request<T>(path: string, signal?: AbortSignal): Promise<T> {
 }
 
 export const api = {
-  getHealth: (signal?: AbortSignal) => request<{ status: string }>('/health', signal),
+  getHealth: (signal?: AbortSignal) => request<{ status: string; service?: string; redis?: string }>('/health', signal),
   getNodes: (signal?: AbortSignal) => request<Worker[]>('/api/nodes', signal),
   getNode: (nodeId: string, signal?: AbortSignal) => request<Worker>(`/api/nodes/${encodeURIComponent(nodeId)}`, signal),
   getTasks: (signal?: AbortSignal) => request<Task[]>('/api/tasks', signal),
   getTask: (taskId: string, signal?: AbortSignal) => request<Task>(`/api/tasks/${encodeURIComponent(taskId)}`, signal),
   getEvents: (signal?: AbortSignal) => request<FailoverEvent[]>('/api/events', signal),
   getMetricsSummary: (signal?: AbortSignal) => request<MetricsSummary>('/api/metrics/summary', signal),
+  submitTask: (payload: { prompt: string; max_tokens?: number; rag_enabled?: boolean; target_model?: string }, signal?: AbortSignal) =>
+    request<{ task_id: string; status: string; message: string; enriched_prompt?: string }>(
+      '/api/v1/tasks/submit',
+      signal,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: payload.prompt,
+          max_tokens: payload.max_tokens ?? 256,
+          rag_enabled: payload.rag_enabled ?? false,
+          target_model: payload.target_model ?? 'llama3.2:1b',
+        }),
+      }
+    ),
 };

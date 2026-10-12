@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n$shared_contracts/mesh_protocol.proto\x12\rqthorium.mesh\"\xa7\x01\n\x0bTaskRequest\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x0e\n\x06prompt\x18\x02 \x01(\t\x12\x12\n\nmax_tokens\x18\x03 \x01(\x05\x12\x12\n\nsession_id\x18\x04 \x01(\t\x12\x14\n\x0ctarget_model\x18\x05 \x01(\t\x12\x10\n\x08priority\x18\x06 \x01(\x05\x12\x13\n\x0btemperature\x18\x07 \x01(\x02\x12\x12\n\ncreated_at\x18\x08 \x01(\x01\"\x86\x01\n\nTokenChunk\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\r\n\x05token\x18\x02 \x01(\t\x12\x10\n\x08is_final\x18\x03 \x01(\x08\x12\x0f\n\x07node_id\x18\x04 \x01(\t\x12\x13\n\x0b\x63hunk_index\x18\x05 \x01(\x05\x12\x11\n\ttimestamp\x18\x06 \x01(\x01\x12\r\n\x05\x65rror\x18\x07 \x01(\t\"\xb2\x01\n\rHardwareStats\x12\x1b\n\x13\x63pu_utilization_pct\x18\x01 \x01(\x02\x12\x13\n\x0bram_free_mb\x18\x02 \x01(\x02\x12\x14\n\x0cram_total_mb\x18\x03 \x01(\x02\x12\x15\n\rgpu_available\x18\x04 \x01(\x08\x12\x14\n\x0cvram_free_mb\x18\x05 \x01(\x02\x12\x15\n\rvram_total_mb\x18\x06 \x01(\x02\x12\x15\n\rtemperature_c\x18\x07 \x01(\x02\"\xd1\x01\n\rHeartbeatPing\x12\x0f\n\x07node_id\x18\x01 \x01(\t\x12\x17\n\x0f\x63pu_utilization\x18\x02 \x01(\x02\x12\x18\n\x10ram_available_mb\x18\x03 \x01(\x02\x12\x10\n\x08is_ready\x18\x04 \x01(\x08\x12\x11\n\ttimestamp\x18\x05 \x01(\x01\x12\x0e\n\x06status\x18\x06 \x01(\t\x12\x17\n\x0f\x63urrent_task_id\x18\x07 \x01(\t\x12.\n\x08hardware\x18\x08 \x01(\x0b\x32\x1c.qthorium.mesh.HardwareStats\":\n\x0cHeartbeatAck\x12\x10\n\x08received\x18\x01 \x01(\x08\x12\x18\n\x10server_timestamp\x18\x02 \x01(\x01\x32\xa5\x01\n\x0fMeshNodeService\x12\x46\n\x0bProcessTask\x12\x1a.qthorium.mesh.TaskRequest\x1a\x19.qthorium.mesh.TokenChunk0\x01\x12J\n\rSendHeartbeat\x12\x1c.qthorium.mesh.HeartbeatPing\x1a\x1b.qthorium.mesh.HeartbeatAckb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n$shared_contracts/mesh_protocol.proto\x12\rqthorium.mesh\"\xcd\x01\n\x0bTaskRequest\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x0e\n\x06prompt\x18\x02 \x01(\t\x12\x12\n\nmax_tokens\x18\x03 \x01(\x05\x12\x12\n\nsession_id\x18\x04 \x01(\t\x12\x14\n\x0ctarget_model\x18\x05 \x01(\t\x12\x10\n\x08priority\x18\x06 \x01(\x05\x12\x13\n\x0btemperature\x18\x07 \x01(\x02\x12\x12\n\ncreated_at\x18\x08 \x01(\x01\x12\x0f\n\x07user_id\x18\t \x01(\t\x12\x13\n\x0brag_enabled\x18\n \x01(\x08\"\xab\x01\n\nTokenChunk\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\r\n\x05token\x18\x02 \x01(\t\x12\x10\n\x08is_final\x18\x03 \x01(\x08\x12\x0f\n\x07node_id\x18\x04 \x01(\t\x12\x13\n\x0b\x63hunk_index\x18\x05 \x01(\x05\x12\x11\n\ttimestamp\x18\x06 \x01(\x01\x12\r\n\x05\x65rror\x18\x07 \x01(\t\x12\x12\n\nsubtask_id\x18\x08 \x01(\t\x12\x0f\n\x07is_last\x18\t \x01(\x08\"\xb2\x01\n\rHardwareStats\x12\x1b\n\x13\x63pu_utilization_pct\x18\x01 \x01(\x02\x12\x13\n\x0bram_free_mb\x18\x02 \x01(\x02\x12\x14\n\x0cram_total_mb\x18\x03 \x01(\x02\x12\x15\n\rgpu_available\x18\x04 \x01(\x08\x12\x14\n\x0cvram_free_mb\x18\x05 \x01(\x02\x12\x15\n\rvram_total_mb\x18\x06 \x01(\x02\x12\x15\n\rtemperature_c\x18\x07 \x01(\x02\"\xd1\x01\n\rHeartbeatPing\x12\x0f\n\x07node_id\x18\x01 \x01(\t\x12\x17\n\x0f\x63pu_utilization\x18\x02 \x01(\x02\x12\x18\n\x10ram_available_mb\x18\x03 \x01(\x02\x12\x10\n\x08is_ready\x18\x04 \x01(\x08\x12\x11\n\ttimestamp\x18\x05 \x01(\x01\x12\x0e\n\x06status\x18\x06 \x01(\t\x12\x17\n\x0f\x63urrent_task_id\x18\x07 \x01(\t\x12.\n\x08hardware\x18\x08 \x01(\x0b\x32\x1c.qthorium.mesh.HardwareStats\":\n\x0cHeartbeatAck\x12\x10\n\x08received\x18\x01 \x01(\x08\x12\x18\n\x10server_timestamp\x18\x02 \x01(\x01\"r\n\x12TaskDispatchNotice\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x12\n\nsubtask_id\x18\x02 \x01(\t\x12\x0e\n\x06prompt\x18\x03 \x01(\t\x12\x12\n\nmax_tokens\x18\x04 \x01(\x05\x12\x13\n\x0btemperature\x18\x05 \x01(\x02\"K\n\x10\x44ispatchResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x15\n\rassigned_node\x18\x02 \x01(\t\x12\x0f\n\x07message\x18\x03 \x01(\t\"{\n\x0cTokenPayload\x12\x0f\n\x07task_id\x18\x01 \x01(\t\x12\x12\n\nsubtask_id\x18\x02 \x01(\t\x12\x13\n\x0b\x63hunk_index\x18\x03 \x01(\x05\x12\r\n\x05token\x18\x04 \x01(\t\x12\x0f\n\x07is_last\x18\x05 \x01(\x08\x12\x11\n\ttimestamp\x18\x06 \x01(\x01\x32\xa5\x01\n\x0fMeshNodeService\x12\x46\n\x0bProcessTask\x12\x1a.qthorium.mesh.TaskRequest\x1a\x19.qthorium.mesh.TokenChunk0\x01\x12J\n\rSendHeartbeat\x12\x1c.qthorium.mesh.HeartbeatPing\x1a\x1b.qthorium.mesh.HeartbeatAck2\xc3\x01\n\x14TaskExecutionService\x12R\n\x0c\x44ispatchTask\x12!.qthorium.mesh.TaskDispatchNotice\x1a\x1f.qthorium.mesh.DispatchResponse\x12W\n\x13StreamSubtaskTokens\x12!.qthorium.mesh.TaskDispatchNotice\x1a\x1b.qthorium.mesh.TokenPayload0\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -32,15 +32,23 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'shared_contracts.mesh_proto
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
   _globals['_TASKREQUEST']._serialized_start=56
-  _globals['_TASKREQUEST']._serialized_end=223
-  _globals['_TOKENCHUNK']._serialized_start=226
-  _globals['_TOKENCHUNK']._serialized_end=360
-  _globals['_HARDWARESTATS']._serialized_start=363
-  _globals['_HARDWARESTATS']._serialized_end=541
-  _globals['_HEARTBEATPING']._serialized_start=544
-  _globals['_HEARTBEATPING']._serialized_end=753
-  _globals['_HEARTBEATACK']._serialized_start=755
-  _globals['_HEARTBEATACK']._serialized_end=813
-  _globals['_MESHNODESERVICE']._serialized_start=816
-  _globals['_MESHNODESERVICE']._serialized_end=981
+  _globals['_TASKREQUEST']._serialized_end=261
+  _globals['_TOKENCHUNK']._serialized_start=264
+  _globals['_TOKENCHUNK']._serialized_end=435
+  _globals['_HARDWARESTATS']._serialized_start=438
+  _globals['_HARDWARESTATS']._serialized_end=616
+  _globals['_HEARTBEATPING']._serialized_start=619
+  _globals['_HEARTBEATPING']._serialized_end=828
+  _globals['_HEARTBEATACK']._serialized_start=830
+  _globals['_HEARTBEATACK']._serialized_end=888
+  _globals['_TASKDISPATCHNOTICE']._serialized_start=890
+  _globals['_TASKDISPATCHNOTICE']._serialized_end=1004
+  _globals['_DISPATCHRESPONSE']._serialized_start=1006
+  _globals['_DISPATCHRESPONSE']._serialized_end=1081
+  _globals['_TOKENPAYLOAD']._serialized_start=1083
+  _globals['_TOKENPAYLOAD']._serialized_end=1206
+  _globals['_MESHNODESERVICE']._serialized_start=1209
+  _globals['_MESHNODESERVICE']._serialized_end=1374
+  _globals['_TASKEXECUTIONSERVICE']._serialized_start=1377
+  _globals['_TASKEXECUTIONSERVICE']._serialized_end=1572
 # @@protoc_insertion_point(module_scope)

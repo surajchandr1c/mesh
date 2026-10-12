@@ -53,7 +53,7 @@ class TaskRequest(BaseModel):
     session_id: Optional[str] = None
     prompt: str = Field(default="", description="Raw prompt text from the end user")
     prompt_chunk: Optional[str] = None
-    target_model: str = "llama3:8b"
+    target_model: str = "llama3.2:1b"
     priority: TaskPriority = TaskPriority.NORMAL
     max_tokens: int = Field(default=512, ge=1, le=4096)
     temperature: float = Field(default=0.7, ge=0.0, le=2.0)
