@@ -14,7 +14,8 @@ async def test_health_endpoint():
         assert data["service"] == "qthorium-orchestrator"
 
 @pytest.mark.asyncio
-async def test_submit_without_jwt():
+async def test_submit_without_jwt(monkeypatch):
+    monkeypatch.setenv("REQUIRE_AUTH", "true")
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         response = await client.post("/api/v1/tasks/submit", json={"prompt": "Test prompt"})
         assert response.status_code == 401

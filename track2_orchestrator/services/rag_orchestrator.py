@@ -39,15 +39,18 @@ async def run_rag_orchestration(
     task_id = task_request.task_id
     now = time.time()
     meta_key = RedisKeys.task_meta(task_id)
-    await redis_client.hmset(
-        meta_key,
-        mapping={
-            "status": TaskStatusEnum.PENDING.value,
-            "updated_at": str(now),
-            "user_id": user_id,
-        },
-    )
-    await redis_client.expire(meta_key, 3600)
+    try:
+        await redis_client.hmset(
+            meta_key,
+            mapping={
+                "status": TaskStatusEnum.PENDING.value,
+                "updated_at": str(now),
+                "user_id": user_id,
+            },
+        )
+        await redis_client.expire(meta_key, 3600)
+    except Exception as exc:
+        logger.warning("Could not persist task metadata to Redis (%s); continuing with dispatch.", exc)
 
     registry = MeshNodeRegistry()
     dispatcher = MeshDispatchClient(registry)
@@ -71,10 +74,13 @@ async def run_rag_orchestration(
         logger.info("Task %s successfully queued in Redis Broker.", task_id)
     except Exception as exc:
         logger.exception("Track 2 dispatch failed for task %s: %s", task_id, exc)
-        await redis_client.hmset(
-            meta_key,
-            mapping={"status": TaskStatusEnum.FAILED.value, "updated_at": str(time.time())},
-        )
+        try:
+            await redis_client.hmset(
+                meta_key,
+                mapping={"status": TaskStatusEnum.FAILED.value, "updated_at": str(time.time())},
+            )
+        except Exception:
+            pass
         raise
 
     logger.info("Completed RAG orchestration for task %s", task_id)

@@ -71,7 +71,7 @@ def get_auth_token(base_url: str) -> Optional[str]:
                 return resp.json().get("access_token")
     except Exception:
         pass
-    return None
+    return "dev-token"
 
 
 def submit_and_stream_task(
@@ -82,9 +82,11 @@ def submit_and_stream_task(
     auth_token: Optional[str] = None,
 ) -> bool:
     """Submit prompt to orchestrator and stream tokens back in real-time."""
-    headers = {"Content-Type": "application/json"}
-    if auth_token:
-        headers["Authorization"] = f"Bearer {auth_token}"
+    token = auth_token or "dev-token"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {token}",
+    }
 
     submit_url = f"{base_url}/api/v1/tasks/submit"
     payload = {

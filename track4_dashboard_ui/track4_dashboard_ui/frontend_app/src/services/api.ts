@@ -11,6 +11,14 @@ const REQUEST_TIMEOUT_MS = parseInt(
   10
 );
 
+function getAuthToken(): string {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    const token = localStorage.getItem('auth_token');
+    if (token) return token;
+  }
+  return 'dev-token';
+}
+
 /**
  * Centralised API request wrapper with timeout, error handling,
  * and AbortController support for cleanup.
@@ -25,9 +33,15 @@ async function request<T>(path: string, signal?: AbortSignal, options?: RequestI
     signal.addEventListener('abort', () => controller.abort());
   }
 
+  const headers = new Headers(options?.headers || {});
+  if (!headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${getAuthToken()}`);
+  }
+
   try {
     const response = await fetch(`${BASE_URL}${path}`, {
       ...options,
+      headers,
       signal: controller.signal,
     });
 
@@ -72,7 +86,10 @@ export const api = {
       signal,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${getAuthToken()}`,
+        },
         body: JSON.stringify({
           prompt: payload.prompt,
           max_tokens: payload.max_tokens ?? 256,

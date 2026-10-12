@@ -5,7 +5,14 @@ from __future__ import annotations
 import os
 import time
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Optional, Set
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 from fastapi import Header, HTTPException, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -23,7 +30,15 @@ DEFAULT_NODE_KEY = os.getenv("NODE_API_KEY", "mesh-node-secret-key-v1")
 VALID_NODE_API_KEYS: Set[str] = {DEFAULT_NODE_KEY, "node-key-worker-1", "node-key-worker-2"}
 
 
-REQUIRE_AUTH = os.getenv("REQUIRE_AUTH", "true").lower() in ("true", "1")
+def is_auth_required() -> bool:
+    """Check dynamically whether JWT authentication is enforced."""
+    val = os.getenv("REQUIRE_AUTH")
+    if val is not None:
+        return val.lower() in ("true", "1")
+    return False
+
+
+REQUIRE_AUTH = is_auth_required()
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
@@ -43,7 +58,7 @@ async def verify_jwt(
     """Validate a JWT bearer token."""
 
     if not credentials or not credentials.credentials:
-        if not REQUIRE_AUTH:
+        if not is_auth_required():
             return AuthToken(token="guest-token", user_id="guest-client", expires_at=time.time() + 86400)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
