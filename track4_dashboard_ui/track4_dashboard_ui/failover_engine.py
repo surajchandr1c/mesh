@@ -87,37 +87,10 @@ def init_db(db_path: str = DEFAULT_DB_PATH) -> None:
 
     conn.commit()
 
-    # Seed mock data if tables are empty
-    cursor.execute("SELECT COUNT(*) FROM nodes")
-    if cursor.fetchone()[0] == 0:
-        now = datetime.now(timezone.utc).isoformat()
-        two_mins_ago = (datetime.now(timezone.utc) - timedelta(minutes=2)).isoformat()
-        
-        # Insert 3 nodes: 2 active, 1 inactive/stale
-        cursor.executemany("""
-            INSERT INTO nodes (node_id, last_seen, is_active, cpu_utilization, ram_available_mb, is_ready, health)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, [
-            ("node-us-west-1", now, 1, 24.5, 4096.0, 1, "HEALTHY"),
-            ("node-eu-central-1", now, 1, 62.1, 2048.0, 1, "HEALTHY"),
-            ("node-asia-east-1", two_mins_ago, 0, 88.0, 1024.0, 0, "UNHEALTHY"),
-        ])
-
-        # Insert 2 tasks: 1 completed, 1 stuck on the dead node
-        cursor.executemany("""
-            INSERT INTO tasks (task_id, assigned_node_id, status, prompt, max_tokens, retries, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, [
-            ("task-901", "node-us-west-1", "completed", "Calculate Fibonacci of 10", 128, 0, now),
-            ("task-902", "node-asia-east-1", "processing", "Summarize QThorium paper", 512, 0, two_mins_ago),
-        ])
-        
-        conn.commit()
-        LOGGER.info("Database initialized and seeded with mock data.")
-
-    # Ensure existing tasks in database reflect current date
-    now_iso = datetime.now(timezone.utc).isoformat()
-    cursor.execute("UPDATE tasks SET updated_at = ? WHERE updated_at < '2026-10-01'", (now_iso,))
+    # Clean up any lingering legacy demo/mock data so only real nodes and tasks are tracked
+    cursor.execute("DELETE FROM nodes WHERE node_id IN ('node-us-west-1', 'node-eu-central-1', 'node-asia-east-1')")
+    cursor.execute("DELETE FROM tasks WHERE task_id IN ('task-901', 'task-902')")
+    cursor.execute("DELETE FROM failover_events WHERE failed_node_id IN ('node-us-west-1', 'node-eu-central-1', 'node-asia-east-1')")
     conn.commit()
 
     conn.close()
@@ -147,19 +120,11 @@ class FailoverEngine:
         self.canonical_engine.check_failovers()
 
     def simulate_heartbeat_and_tasks(self) -> None:
-        """Simulate real-time activity for testing/visual monitoring."""
+        """Keep active nodes updated with real-time heartbeat timestamps."""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         now = datetime.now(timezone.utc).isoformat()
-
-        # Update heartbeats for active nodes with slightly varying CPU loads
-        cursor.execute("UPDATE nodes SET last_seen = ?, cpu_utilization = cpu_utilization + ? WHERE node_id = 'node-us-west-1'", (now, 1.2))
-        cursor.execute("UPDATE nodes SET last_seen = ?, cpu_utilization = cpu_utilization - ? WHERE node_id = 'node-eu-central-1'", (now, 0.8))
-        
-        # Clip CPU utilization values to valid ranges [5%, 95%]
-        cursor.execute("UPDATE nodes SET cpu_utilization = 15.0 WHERE cpu_utilization < 5.0")
-        cursor.execute("UPDATE nodes SET cpu_utilization = 90.0 WHERE cpu_utilization > 95.0")
-
+        cursor.execute("UPDATE nodes SET last_seen = ? WHERE is_active = 1", (now,))
         conn.commit()
         conn.close()
 

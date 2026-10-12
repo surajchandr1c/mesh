@@ -28,6 +28,16 @@ export const WorkerStatusBadge: React.FC<WorkerStatusBadgeProps> = ({ status }) 
           dot: '#3B82F6',
           pulse: true,
         };
+      case 'CONNECTING':
+      case 'INITIALIZING':
+      case 'HANDSHAKING':
+        return {
+          bg: 'rgba(6, 182, 212, 0.14)',
+          border: 'rgba(6, 182, 212, 0.45)',
+          text: '#06B6D4',
+          dot: '#06B6D4',
+          pulse: true,
+        };
       case 'PENDING':
       case 'DEGRADED':
       case 'NOT READY':

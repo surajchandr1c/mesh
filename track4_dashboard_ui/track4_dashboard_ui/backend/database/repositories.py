@@ -310,6 +310,49 @@ class NodeRepository:
         finally:
             conn.close()
 
+    def create_or_update_task(
+        self,
+        task_id: str,
+        prompt: str,
+        assigned_node_id: Optional[str] = None,
+        status: str = "pending",
+        max_tokens: int = 512,
+        retries: int = 0,
+        updated_at: Optional[str] = None,
+    ) -> Task:
+        """Create or update a real task in the registry database."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        now = updated_at or datetime.now(timezone.utc).isoformat()
+        try:
+            cursor.execute(
+                """
+                INSERT INTO tasks (task_id, assigned_node_id, status, prompt, max_tokens, retries, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(task_id) DO UPDATE SET
+                    assigned_node_id = COALESCE(excluded.assigned_node_id, tasks.assigned_node_id),
+                    status = excluded.status,
+                    retries = excluded.retries,
+                    updated_at = excluded.updated_at
+                """,
+                (task_id, assigned_node_id, status, prompt, max_tokens, retries, now),
+            )
+            conn.commit()
+            return Task(
+                task_id=task_id,
+                assigned_node_id=assigned_node_id,
+                status=status,
+                prompt=prompt,
+                max_tokens=max_tokens,
+                retries=retries,
+                updated_at=now,
+            )
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            conn.close()
+
     def has_failover_event_occurred(self, task_id: str, failed_node_id: str) -> bool:
         """Check if a failover re-route event was already logged for this task and failed node."""
         conn = self._get_connection()

@@ -34,6 +34,19 @@ async def submit_task(
         user_id=auth.user_id,
     )
 
+    # Persist the real submitted task into the registry for live Track 4 UI tracking
+    registry_service = getattr(request.app.state, "registry_service", None)
+    if registry_service is not None:
+        try:
+            registry_service.create_or_update_task(
+                task_id=result.task_id,
+                prompt=payload.prompt,
+                max_tokens=payload.max_tokens,
+                status=TaskStatusEnum.PENDING.value,
+            )
+        except Exception as exc:
+            logger.debug("Could not record task in SQLite registry: %s", exc)
+
     return {
         "task_id": result.task_id,
         "status": TaskStatusEnum.PENDING.value,

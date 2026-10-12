@@ -1,7 +1,7 @@
 import React from 'react';
 import { Worker } from '../types/worker';
 import { WorkerStatusBadge } from './WorkerStatusBadge';
-import { Server, Cpu, HardDrive, ChevronRight } from 'lucide-react';
+import { Server, Laptop, Cpu, HardDrive, ChevronRight, Loader2, Sparkles, Radio } from 'lucide-react';
 
 interface WorkerTableProps {
   workers: Worker[];
@@ -12,6 +12,16 @@ export const WorkerTable: React.FC<WorkerTableProps> = ({ workers, onSelectNode 
   return (
     <div className="worker-grid">
       {workers.map((w) => {
+        // Distinguish device type
+        const isLaptop =
+          /laptop|macbook|desktop|thinkpad|dell|hp|worker|contributor|client/i.test(w.node_id) ||
+          !/server|central/i.test(w.node_id);
+
+        const isConnecting =
+          !w.is_ready ||
+          w.health.toUpperCase() === 'CONNECTING' ||
+          w.health.toUpperCase() === 'HANDSHAKING';
+
         // CPU color calculation
         const cpuColor =
           w.cpu_utilization > 85 ? '#EF4444' : w.cpu_utilization > 60 ? '#F59E0B' : '#10B981';
@@ -19,21 +29,38 @@ export const WorkerTable: React.FC<WorkerTableProps> = ({ workers, onSelectNode 
         return (
           <div
             key={w.node_id}
-            className="card worker-card clickable"
+            className={`card worker-card clickable ${isConnecting ? 'worker-card-connecting' : ''}`}
             onClick={() => onSelectNode(w.node_id)}
           >
             <div className="worker-card-header">
               <div className="worker-id-group">
-                <div className="worker-icon-box">
-                  <Server size={18} />
+                <div className={`worker-icon-box ${isLaptop ? 'icon-box-laptop' : ''}`}>
+                  {isLaptop ? <Laptop size={18} /> : <Server size={18} />}
                 </div>
                 <div>
-                  <span className="worker-card-id">{w.node_id}</span>
-                  <span className="worker-subtext">Compute Node</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span className="worker-card-id">{w.node_id}</span>
+                  </div>
+                  <span className="worker-subtext">
+                    {isLaptop ? 'Contributor Laptop Node' : 'Primary Server Host'}
+                  </span>
                 </div>
               </div>
-              <WorkerStatusBadge status={w.is_active ? 'ONLINE' : 'OFFLINE'} />
+
+              {isConnecting ? (
+                <WorkerStatusBadge status="CONNECTING" />
+              ) : (
+                <WorkerStatusBadge status={w.is_active ? 'ONLINE' : 'OFFLINE'} />
+              )}
             </div>
+
+            {/* Connecting status bar if laptop is actively handshaking */}
+            {isConnecting && (
+              <div className="laptop-connecting-strip">
+                <Loader2 size={13} className="spin-animate" />
+                <span>Establishing gRPC stream • Negotiating Llama 3.2 1B</span>
+              </div>
+            )}
 
             <div className="worker-card-body">
               {/* CPU Meter */}
@@ -78,11 +105,23 @@ export const WorkerTable: React.FC<WorkerTableProps> = ({ workers, onSelectNode 
                 </div>
               </div>
 
+              {/* Model Capability & Protocol Info */}
+              <div className="worker-model-info">
+                <div className="model-chip">
+                  <Sparkles size={12} style={{ color: '#8B5CF6' }} />
+                  <span>Model: Llama 3.2 1B</span>
+                </div>
+                <div className="protocol-chip">
+                  <Radio size={11} style={{ color: '#10B981' }} />
+                  <span>gRPC :50051</span>
+                </div>
+              </div>
+
               {/* Bottom Badges */}
               <div className="worker-card-footer">
                 <div className="footer-badges">
-                  <WorkerStatusBadge status={w.health} />
-                  <WorkerStatusBadge status={w.is_ready ? 'READY' : 'NOT READY'} />
+                  <WorkerStatusBadge status={isConnecting ? 'CONNECTING' : w.health} />
+                  <WorkerStatusBadge status={w.is_ready ? 'READY' : 'CONNECTING'} />
                 </div>
                 <span className="inspect-link">
                   Details <ChevronRight size={14} />

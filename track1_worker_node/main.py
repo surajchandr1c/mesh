@@ -65,8 +65,28 @@ def main() -> None:
     from shared_contracts.schemas import TokenChunk
     node_id = os.getenv("NODE_ID", "gaming-desktop-01")
     
+    # Pre-register real worker node presence
+    try:
+        from track4_dashboard_ui.track4_dashboard_ui.backend.config import get_default_database_path
+        from track4_dashboard_ui.track4_dashboard_ui.backend.database.repositories import NodeRepository
+        from datetime import datetime, timezone
+        sys_health = monitor.get_system_health()
+        repo = NodeRepository(get_default_database_path())
+        repo.register_node(
+            node_id=node_id,
+            last_seen=datetime.now(timezone.utc).isoformat(),
+            cpu_utilization=sys_health["cpu_utilization_percent"],
+            ram_available_mb=sys_health["ram_available_mb"],
+            is_ready=True,
+            is_active=True,
+            health="HEALTHY",
+        )
+    except Exception as exc:
+        LOGGER.debug("Could not pre-register worker node: %s", exc)
+
     async def run_worker_loop():
-        sender = await run_heartbeat_sender(node_id=node_id, target="localhost:50051", interval_seconds=5.0)
+        grpc_target = os.getenv("GRPC_TARGET", "localhost:50051")
+        sender = await run_heartbeat_sender(node_id=node_id, target=grpc_target, interval_seconds=5.0)
         broker = TaskBroker()
         await broker.connect()
         
@@ -79,6 +99,24 @@ def main() -> None:
                     health["ram_utilization_percent"],
                 )
 
+                # Keep live real node presence updated in registry
+                try:
+                    from track4_dashboard_ui.track4_dashboard_ui.backend.config import get_default_database_path
+                    from track4_dashboard_ui.track4_dashboard_ui.backend.database.repositories import NodeRepository
+                    from datetime import datetime, timezone
+                    repo = NodeRepository(get_default_database_path())
+                    repo.register_node(
+                        node_id=node_id,
+                        last_seen=datetime.now(timezone.utc).isoformat(),
+                        cpu_utilization=health["cpu_utilization_percent"],
+                        ram_available_mb=health["ram_available_mb"],
+                        is_ready=monitor.is_ready_for_task(),
+                        is_active=True,
+                        health="HEALTHY" if health["cpu_utilization_percent"] < 90 else "DEGRADED",
+                    )
+                except Exception:
+                    pass
+
                 if not monitor.is_ready_for_task():
                     LOGGER.warning("System is overloaded; declining the next task.")
                     await asyncio.sleep(HEARTBEAT_INTERVAL_SECONDS)
@@ -88,6 +126,20 @@ def main() -> None:
                 task = await broker.dequeue_task(timeout_sec=2.0)
                 if task:
                     LOGGER.info("Worker picked up task: %s | Prompt: %s", task.task_id, task.prompt)
+                    try:
+                        from track4_dashboard_ui.track4_dashboard_ui.backend.config import get_default_database_path
+                        from track4_dashboard_ui.track4_dashboard_ui.backend.database.repositories import NodeRepository
+                        repo = NodeRepository(get_default_database_path())
+                        repo.create_or_update_task(
+                            task_id=task.task_id,
+                            prompt=task.prompt,
+                            assigned_node_id=node_id,
+                            status="processing",
+                            max_tokens=task.max_tokens,
+                        )
+                    except Exception:
+                        pass
+
                     try:
                         chunk_index = 0
                         # Execute local LLM inference and stream tokens
@@ -113,6 +165,21 @@ def main() -> None:
                             is_last=True,
                         )
                         await broker.publish_token_chunk(final_chunk)
+
+                        try:
+                            from track4_dashboard_ui.track4_dashboard_ui.backend.config import get_default_database_path
+                            from track4_dashboard_ui.track4_dashboard_ui.backend.database.repositories import NodeRepository
+                            repo = NodeRepository(get_default_database_path())
+                            repo.create_or_update_task(
+                                task_id=task.task_id,
+                                prompt=task.prompt,
+                                assigned_node_id=node_id,
+                                status="completed",
+                                max_tokens=task.max_tokens,
+                            )
+                        except Exception:
+                            pass
+
                         LOGGER.info("Finished execution for task: %s", task.task_id)
                     except Exception as e:
                         LOGGER.exception("Inference execution failed: %s", e)

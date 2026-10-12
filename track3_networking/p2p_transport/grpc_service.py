@@ -140,6 +140,24 @@ class MeshNodeService(_BaseMeshNodeService):
                 await self.broker.redis_client.expire(RedisKeys.ACTIVE_NODES, 30)
             except Exception as exc:
                 LOGGER.error("Failed to sync node heartbeat to Redis: %s", exc)
+
+        # Sync real node presence to Track 4 SQLite registry for live UI
+        try:
+            from datetime import datetime, timezone
+            from track4_dashboard_ui.track4_dashboard_ui.backend.config import get_default_database_path
+            from track4_dashboard_ui.track4_dashboard_ui.backend.database.repositories import NodeRepository
+            repo = NodeRepository(get_default_database_path())
+            repo.register_node(
+                node_id=request.node_id,
+                last_seen=datetime.now(timezone.utc).isoformat(),
+                cpu_utilization=float(getattr(request, "cpu_utilization", 0.0)),
+                ram_available_mb=float(getattr(request, "ram_available_mb", 0.0)),
+                is_ready=True,
+                is_active=True,
+                health="HEALTHY" if float(getattr(request, "cpu_utilization", 0.0)) < 90 else "DEGRADED",
+            )
+        except Exception as exc:
+            LOGGER.debug("Could not sync node to SQLite: %s", exc)
                 
         LOGGER.debug("Heartbeat received from %s", request.node_id)
         return pb2.HeartbeatAck(received=True, server_timestamp=time.time())
