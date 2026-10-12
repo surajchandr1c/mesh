@@ -19,8 +19,7 @@ interface WorkersProps {
 
 export const Workers: React.FC<WorkersProps> = ({ onSelectNode }) => {
   const { workers, loading, error, refresh } = useWorkers();
-  const [healthFilter, setHealthFilter] = useState('ALL');
-  const [activeFilter, setActiveFilter] = useState('ALL');
+  const [activeTab, setActiveTab] = useState<'ALL' | 'ACTIVE' | 'HEALTHY' | 'DEGRADED'>('ALL');
   const [isScanning, setIsScanning] = useState(false);
   const [showConnectGuide, setShowConnectGuide] = useState(false);
   const [copiedCmd, setCopiedCmd] = useState(false);
@@ -41,7 +40,7 @@ export const Workers: React.FC<WorkersProps> = ({ onSelectNode }) => {
     setTimeout(() => setCopiedCmd(false), 2000);
   };
 
-  // Dedicated Full-Page Scanner while initial connection is loading
+  // Full-page loading animation during initial query
   if (loading && workers.length === 0) {
     return (
       <div className="page-content">
@@ -80,14 +79,22 @@ export const Workers: React.FC<WorkersProps> = ({ onSelectNode }) => {
     );
   }
 
-  // Filter logic
+  // Count summaries
+  const counts = {
+    all: workers.length,
+    active: workers.filter((w) => w.is_active).length,
+    healthy: workers.filter((w) => w.health.toUpperCase() === 'HEALTHY').length,
+    degraded: workers.filter((w) => w.health.toUpperCase() === 'DEGRADED' || w.health.toUpperCase() === 'UNHEALTHY').length,
+  };
+
+  // Apply tab filter
   let filtered = workers;
-  if (healthFilter !== 'ALL') {
-    filtered = filtered.filter((w) => w.health.toUpperCase() === healthFilter.toUpperCase());
-  }
-  if (activeFilter !== 'ALL') {
-    const shouldBeActive = activeFilter === 'ACTIVE';
-    filtered = filtered.filter((w) => w.is_active === shouldBeActive);
+  if (activeTab === 'ACTIVE') {
+    filtered = filtered.filter((w) => w.is_active);
+  } else if (activeTab === 'HEALTHY') {
+    filtered = filtered.filter((w) => w.health.toUpperCase() === 'HEALTHY');
+  } else if (activeTab === 'DEGRADED') {
+    filtered = filtered.filter((w) => w.health.toUpperCase() === 'DEGRADED' || w.health.toUpperCase() === 'UNHEALTHY');
   }
 
   return (
@@ -154,40 +161,55 @@ export const Workers: React.FC<WorkersProps> = ({ onSelectNode }) => {
         </div>
       )}
 
-      {/* Filter and Control Bar */}
-      <div className="filter-bar" style={{ marginBottom: '16px' }}>
-        <div className="filter-group">
-          <label htmlFor="health-select">Health Status</label>
-          <select
-            id="health-select"
-            value={healthFilter}
-            onChange={(e) => setHealthFilter(e.target.value)}
-          >
-            <option value="ALL">ALL ({workers.length})</option>
-            <option value="HEALTHY">HEALTHY</option>
-            <option value="DEGRADED">DEGRADED</option>
-            <option value="UNHEALTHY">UNHEALTHY</option>
-          </select>
+      {/* When 0 workers are connected: Show sleek live mesh banner (NO raw empty filters) */}
+      {workers.length === 0 ? (
+        <div className="mesh-live-banner">
+          <div className="mesh-banner-status">
+            <span className="live-dot-pulse" />
+            <span>Mesh gRPC Endpoint: <strong>0.0.0.0:50051</strong> (TCP) Active</span>
+          </div>
+          <span className="mesh-banner-note">
+            Awaiting contributor laptops on LAN • Auto-polling every 5s
+          </span>
         </div>
+      ) : (
+        /* When workers exist: Show sleek modern filter tabs */
+        <div className="control-bar">
+          <div className="filter-tabs">
+            <button
+              className={`filter-tab ${activeTab === 'ALL' ? 'active' : ''}`}
+              onClick={() => setActiveTab('ALL')}
+            >
+              All Workers <span className="tab-count">{counts.all}</span>
+            </button>
+            <button
+              className={`filter-tab ${activeTab === 'ACTIVE' ? 'active' : ''}`}
+              onClick={() => setActiveTab('ACTIVE')}
+            >
+              Online Active <span className="tab-count count-green">{counts.active}</span>
+            </button>
+            <button
+              className={`filter-tab ${activeTab === 'HEALTHY' ? 'active' : ''}`}
+              onClick={() => setActiveTab('HEALTHY')}
+            >
+              Healthy <span className="tab-count count-blue">{counts.healthy}</span>
+            </button>
+            {counts.degraded > 0 && (
+              <button
+                className={`filter-tab ${activeTab === 'DEGRADED' ? 'active' : ''}`}
+                onClick={() => setActiveTab('DEGRADED')}
+              >
+                Degraded <span className="tab-count count-amber">{counts.degraded}</span>
+              </button>
+            )}
+          </div>
 
-        <div className="filter-group">
-          <label htmlFor="status-select">Connection</label>
-          <select
-            id="status-select"
-            value={activeFilter}
-            onChange={(e) => setActiveFilter(e.target.value)}
-          >
-            <option value="ALL">ALL</option>
-            <option value="ACTIVE">ACTIVE</option>
-            <option value="OFFLINE">OFFLINE</option>
-          </select>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+            <Radio size={14} style={{ color: '#10B981' }} />
+            <span>Listening on 0.0.0.0:50051</span>
+          </div>
         </div>
-
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--text-secondary)' }}>
-          <Radio size={14} style={{ color: '#10B981' }} />
-          <span>Listening on 0.0.0.0:50051</span>
-        </div>
-      </div>
+      )}
 
       {/* Main Display: Active Worker Grid OR Live Radar Scanner */}
       {filtered.length === 0 ? (
