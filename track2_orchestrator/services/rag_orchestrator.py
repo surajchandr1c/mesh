@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 import json
@@ -30,11 +31,15 @@ async def run_rag_orchestration(
 ) -> RagOrchestrationResult:
     """Resolve the full Track 2 flow from prompt to dispatched task."""
 
-    enriched_prompt = build_enriched_prompt(
-        prompt=task_request.prompt,
-        rag_enabled=task_request.rag_enabled,
-        top_k=top_k,
-    )
+    if task_request.rag_enabled:
+        enriched_prompt = await asyncio.to_thread(
+            build_enriched_prompt,
+            prompt=task_request.prompt,
+            rag_enabled=True,
+            top_k=top_k,
+        )
+    else:
+        enriched_prompt = task_request.prompt.strip()
 
     task_id = task_request.task_id
     now = time.time()

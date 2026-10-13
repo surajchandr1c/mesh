@@ -7,7 +7,7 @@ const BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL || '';
 
 // Default request timeout in milliseconds (configurable via env var)
 const REQUEST_TIMEOUT_MS = parseInt(
-  (import.meta as any).env?.VITE_REQUEST_TIMEOUT_MS || '8000',
+  (import.meta as any).env?.VITE_REQUEST_TIMEOUT_MS || '25000',
   10
 );
 
@@ -25,12 +25,21 @@ function getAuthToken(): string {
  */
 async function request<T>(path: string, signal?: AbortSignal, options?: RequestInit): Promise<T> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  let timedOut = false;
+  const timeoutId = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, REQUEST_TIMEOUT_MS);
 
   // If an external signal is provided (e.g., from unmounting component),
   // propagate its abort to our internal controller.
   if (signal) {
-    signal.addEventListener('abort', () => controller.abort());
+    if (signal.aborted) {
+      clearTimeout(timeoutId);
+      controller.abort();
+    } else {
+      signal.addEventListener('abort', () => controller.abort(), { once: true });
+    }
   }
 
   const headers = new Headers(options?.headers || {});
@@ -63,8 +72,14 @@ async function request<T>(path: string, signal?: AbortSignal, options?: RequestI
 
     return (await response.json()) as T;
   } catch (err: unknown) {
-    if (err instanceof DOMException && err.name === 'AbortError') {
-      throw new Error('Request timed out or was cancelled');
+    if ((err instanceof DOMException && err.name === 'AbortError') || controller.signal.aborted) {
+      if (signal?.aborted && !timedOut) {
+        // Cancelled by caller (e.g. poll refresh or component unmount)
+        const abortErr = new Error('Request cancelled');
+        abortErr.name = 'AbortError';
+        throw abortErr;
+      }
+      throw new Error('Request timed out — please check that the Orchestrator server is running on port 8000');
     }
     throw err;
   } finally {

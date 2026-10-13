@@ -27,7 +27,8 @@ export function useWorkers() {
         setError(null);
       }
     } catch (err: unknown) {
-      if (controller.signal.aborted) return; // Component unmounted or request replaced
+      if (controller.signal.aborted || (err instanceof Error && err.name === 'AbortError')) return;
+      if (!isInitial) return;
       if (err instanceof Error) {
         setError(err.message);
       } else {

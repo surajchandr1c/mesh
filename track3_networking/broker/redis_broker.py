@@ -20,7 +20,12 @@ except ImportError:
     REDIS_AVAILABLE = False
 
 
+import time as _time
+
+
 class TaskBroker:
+    _offline_until: float = 0.0
+
     def __init__(self, redis_url: str = "redis://localhost:6379/0"):
         self.redis_url = redis_url
         self.redis_client = None
@@ -31,23 +36,31 @@ class TaskBroker:
 
     async def connect(self) -> bool:
         """Connects to Redis; if unavailable, falls back smoothly to in-memory mode."""
-        if REDIS_AVAILABLE:
+        if REDIS_AVAILABLE and _time.monotonic() >= TaskBroker._offline_until:
             try:
                 self.redis_client = redis.from_url(
-                    self.redis_url, 
-                    socket_timeout=2.0, 
+                    self.redis_url,
+                    socket_connect_timeout=0.2,
+                    socket_timeout=0.2,
                     decode_responses=True,
-                    protocol=2
+                    protocol=2,
                 )
                 await self.redis_client.ping()
                 self._is_connected = True
                 logger.info("Connected successfully to Redis Broker at %s", self.redis_url)
                 return True
             except Exception as e:
+                TaskBroker._offline_until = _time.monotonic() + 60.0
                 logger.warning("Redis connection failed (%s). Falling back to resilient In-Memory Broker.", e)
-        else:
+                if self.redis_client is not None:
+                    try:
+                        await self.redis_client.aclose()
+                    except Exception:
+                        pass
+                self.redis_client = None
+        elif not REDIS_AVAILABLE:
             logger.info("Redis library not found. Operating in In-Memory Broker mode.")
-        
+
         self._is_connected = False
         return False
 
