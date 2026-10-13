@@ -1,149 +1,87 @@
-# Autonomous Execution Directive: Host and Launch QThorium Compute Mesh (PC 2)
+# Autonomous Antigravity Prompt for 2nd PC (`PC2_FULL_PROMPT.md`)
 
-Act as a Senior Windows DevOps & Distributed AI Systems Engineer. Take full autonomous control of this machine (**PC 2**) to clone, install, configure, start, and verify the **QThorium Compute Mesh** stack from scratch.
-
-This machine serves as the **Central Server and Inference Node**, hosting the Redis message broker, gRPC transport, FastAPI orchestrator, and local AI inference worker powered by **Llama 3.2 1B (~1.3 GB)** via Ollama.
-
-Do not stop for routine confirmations—execute PowerShell commands directly, resolve any environmental or path issues automatically, and ensure the entire platform is healthy and ready for external connections from PC 1 over the local network.
+> **Copy everything inside the prompt block below and paste it directly into Antigravity on your 2nd PC (PC 2).**
+> Your Main PC IP (`10.8.2.105`) is pre-configured so PC 2 will **first establish and verify the live connection**, and **then send tasks from PC 2**, execute Llama 3.2 1B inference on PC 2, and stream the completed result back so your Main PC dashboard displays **"📥 Task Received from PC 2"** and **"⚡ Generated on PC 2"**.
 
 ---
 
-## 🛠️ Step 1: Clone Repository & Workspace Setup
+```markdown
+# Autonomous Execution Directive: Connect PC 2 to Main PC (10.8.2.105), Then Send & Execute Tasks on PC 2
 
-1. Create the target directory and clone from GitHub (or pull if already present):
-```powershell
-$WorkDir = "$HOME\Desktop\qthorium_mesh"
-if (!(Test-Path $WorkDir)) {
-    New-Item -ItemType Directory -Path $WorkDir -Force | Out-Null
-}
-Set-Location $WorkDir
+Act as an Autonomous Senior Distributed Systems & AI Engineer inside **Antigravity**. Take full, end-to-end control of this computer (**PC 2**) without asking for manual confirmation.
 
-if (!(Test-Path "$WorkDir\.git")) {
-    Write-Host "Cloning repository from https://github.com/surajchandr1c/mesh.git..." -ForegroundColor Cyan
-    git clone https://github.com/surajchandr1c/mesh.git .
-} else {
-    Write-Host "Repository exists. Pulling latest commits..." -ForegroundColor Cyan
-    git pull origin main
-}
-```
+### 🌐 Network Topology & Strict Execution Order
+- **Main PC (Central Orchestrator & Dashboard IP)**: `10.8.2.105`
+  - Orchestrator HTTP API: `http://10.8.2.105:8000`
+  - gRPC Coordinator: `10.8.2.105:50051`
+- **This PC (PC 2 — Remote Worker & Task Sender)**:
+  - Worker Node ID: `pc2-worker-$env:COMPUTERNAME`
+  - Local AI Engine: **Llama 3.2 1B GGUF** (`track1_worker_node/main.py`)
 
-2. Confirm critical project files exist:
-```powershell
-Get-ChildItem -Path . -Include requirements.txt, docker-compose.yml, client_submit.py -File
-```
+**CRITICAL ORDER OF OPERATIONS**:
+1. **FIRST**: Establish and verify the live worker connection from **PC 2** to **Main PC (`10.8.2.105`)** so Main PC shows `pc2-worker-<HOSTNAME>` as **Online (`HEALTHY`)**.
+2. **SECOND**: Send 2 AI inference tasks **from PC 2** to Main PC (`http://10.8.2.105:8000/api/v1/tasks/submit`) so Main PC shows **`📥 Task Received from PC 2`**, and let **PC 2's worker node** pull those tasks, generate the LLM output on **PC 2**, and return the completed output to Main PC.
 
 ---
 
-## 🐍 Step 2: Python Environment & All Module Dependencies
+## 🛠️ STEP 1: Sync Latest Repository & Verify Dependencies on PC 2
 
-1. Ensure Python 3.10+ is available:
+Locate the `qthorium_mesh` repository (or clone `https://github.com/surajchandr1c/mesh.git`), pull the latest `main` branch, and verify Python dependencies and the Llama 3.2 1B GGUF model:
+
 ```powershell
-python --version
-```
-
-2. Create virtual environment and activate it:
-```powershell
-if (!(Test-Path ".venv")) {
-    python -m venv .venv
-}
-& .\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-```
-
-3. Install all repository requirements:
-```powershell
-pip install -r requirements.txt
-```
-
-4. Verify core package imports:
-```powershell
-python -c "import fastapi, uvicorn, redis, grpc, pydantic, httpx, chromadb; print('All core modules successfully imported!')"
-```
-
----
-
-## 🦙 Step 3: AI Inference Engine & Llama 3.2 1B Model Setup
-
-1. Check if Ollama is installed. If missing or not in PATH, find or install via winget:
-```powershell
-$ollamaCmd = Get-Command ollama -ErrorAction SilentlyContinue
-if (!$ollamaCmd) {
-    $stdPath = "$env:LOCALAPPDATA\Programs\Ollama\ollama.exe"
-    if (Test-Path $stdPath) {
-        $env:Path += ";$env:LOCALAPPDATA\Programs\Ollama"
-    } else {
-        Write-Host "Installing Ollama..." -ForegroundColor Yellow
-        winget install Ollama.Ollama --accept-source-agreements --accept-package-agreements
-        $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
-    }
-}
-ollama --version
-```
-
-2. Ensure Ollama daemon is running at `http://localhost:11434`:
-```powershell
-try {
-    $res = Invoke-RestMethod -Uri "http://localhost:11434/api/tags" -Method Get -TimeoutSec 3 -ErrorAction Stop
-    Write-Host "Ollama server is active." -ForegroundColor Green
-} catch {
-    Write-Host "Launching Ollama daemon in background..." -ForegroundColor Yellow
-    Start-Process "ollama" -ArgumentList "serve" -WindowStyle Hidden
-    Start-Sleep -Seconds 3
-}
-```
-
-3. Download the **Llama 3.2 1B (1.3 GB)** model and verify:
-```powershell
-ollama pull llama3.2:1b
-ollama list
-```
-
----
-
-## 📦 Step 4: Redis Message Broker Setup
-
-1. Locate Docker Desktop and start Redis:
-```powershell
-if (!(Get-Command docker -ErrorAction SilentlyContinue)) {
-    $dockerPaths = @(
-        "C:\Program Files\Docker\Docker\resources\bin",
-        "$env:LOCALAPPDATA\Programs\DockerDesktop\resources\bin"
+if (!(Test-Path "requirements.txt")) {
+    $candidates = @(
+        "$PWD",
+        "$HOME\Desktop\qthorium_mesh",
+        "$HOME\Desktop\Practice\Hackathone\qthorium_mesh"
     )
-    foreach ($p in $dockerPaths) {
-        if (Test-Path "$p\docker.exe") {
-            $env:Path += ";$p"
-            break
-        }
+    foreach ($c in $candidates) {
+        if (Test-Path "$c\requirements.txt") { Set-Location $c; break }
     }
 }
 
-docker compose up -d redis
-docker compose ps
-```
+git fetch origin main
+git reset --hard origin/main
 
-2. Confirm port 6379 is reachable:
+if (Test-Path ".venv\Scripts\Activate.ps1") {
+    & .\.venv\Scripts\Activate.ps1
+}
+
+python -c "import fastapi, uvicorn, grpc, requests, psutil, pydantic, llama_cpp; print('DEPENDENCIES_OK')"
+```
+*(If any package is missing, run `pip install -r requirements.txt`.)*
+
+Ensure the Llama 3.2 1B GGUF model exists in `./models/Llama-3.2-1B-Instruct-Q4_K_M.gguf`:
 ```powershell
-Test-NetConnection -ComputerName localhost -Port 6379 -InformationLevel Quiet
+if (!(Test-Path "models\Llama-3.2-1B-Instruct-Q4_K_M.gguf")) {
+    New-Item -ItemType Directory -Force -Path "models" | Out-Null
+    Invoke-WebRequest -Uri "https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.gguf" -OutFile "models\Llama-3.2-1B-Instruct-Q4_K_M.gguf"
+}
 ```
 
 ---
 
-## ⚙️ Step 5: Environment Configuration (`.env`)
+## ⚙️ STEP 2: Configure `.env` on PC 2 with Main PC IP (`10.8.2.105`)
 
-Write the production configuration to `.env` (with `API_HOST=0.0.0.0` for LAN access and `REQUIRE_AUTH=false`):
+Configure `.env` so PC 2 connects directly to Main PC (`10.8.2.105`):
 
 ```powershell
+$pc2NodeId = "pc2-worker-$env:COMPUTERNAME"
+
 $envContent = @"
 # ==========================================
-# QThorium Mesh - PC 2 Central Server
+# QThorium Mesh - PC 2 Connected to Main PC (10.8.2.105)
 # ==========================================
-REDIS_URL=redis://localhost:6379/0
-NODE_ID=main-server-pc2
+REDIS_URL=redis://10.8.2.105:6379/0
+ORCHESTRATOR_URL=http://10.8.2.105:8000
+NODE_ID=$pc2NodeId
 NODE_API_KEY=mesh-node-secret-key-v1
-GRPC_TARGET=localhost:50051
+GRPC_TARGET=10.8.2.105:50051
 
 TARGET_MODEL=llama3.2:1b
 OLLAMA_HOST=http://localhost:11434
+WORKER_CPU_THRESHOLD=98.0
+WORKER_RAM_THRESHOLD=99.0
 
 JWT_SECRET_KEY=volunpc-secret-key-change-in-production-12345
 REQUIRE_AUTH=false
@@ -154,100 +92,105 @@ API_PORT=8000
 "@
 
 Set-Content -Path ".env" -Value $envContent -Encoding UTF8
-Write-Host ".env successfully configured!" -ForegroundColor Green
+Write-Host "Configured .env on PC 2 with NODE_ID=$pc2NodeId -> Main PC 10.8.2.105" -ForegroundColor Green
 ```
 
 ---
 
-## 🛡️ Step 6: Windows Firewall Rules
+## 🔌 STEP 3: FIRST — Make & Verify the Connection to Main PC (`10.8.2.105`)
 
-Allow incoming traffic on ports 8000, 50051, and 6379 for PC 1:
-
+1. Verify TCP & HTTP connectivity from PC 2 to Main PC (`10.8.2.105:8000` and `10.8.2.105:50051`):
 ```powershell
-try {
-    New-NetFirewallRule -DisplayName "QThorium Mesh Inbound" -Direction Inbound -LocalPort 8000,50051,6379 -Protocol TCP -Action Allow -ErrorAction Stop | Out-Null
-    Write-Host "Firewall rule created." -ForegroundColor Green
-} catch {
-    Write-Host "Firewall rule already active or requires Administrator elevation." -ForegroundColor Yellow
-}
+$httpCheck = Test-NetConnection -ComputerName 10.8.2.105 -Port 8000
+$grpcCheck = Test-NetConnection -ComputerName 10.8.2.105 -Port 50051
+Write-Host "Main PC HTTP (:8000) Reachable: $($httpCheck.TcpTestSucceeded)" -ForegroundColor Cyan
+Write-Host "Main PC gRPC (:50051) Reachable: $($grpcCheck.TcpTestSucceeded)" -ForegroundColor Cyan
+
+$health = Invoke-RestMethod -Uri "http://10.8.2.105:8000/health" -TimeoutSec 5
+Write-Host "Main PC Health: $($health | ConvertTo-Json -Compress)" -ForegroundColor Green
 ```
 
----
-
-## 🚀 Step 7: Launch All 4 Background Services
-
-Set `$env:PYTHONPATH="."` and launch all four services in separate background processes:
-
+2. Stop any old worker processes on PC 2, then **launch the PC 2 Worker Node as a persistent background daemon** (`IsDaemon: true` in Antigravity `run_command`):
 ```powershell
 $env:PYTHONPATH = "."
-$root = (Get-Location).Path
-
-# 1. Message Broker (Redis)
-docker compose up -d redis
-
-# 2. Track 3 gRPC Mesh Server (:50051)
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "`$env:PYTHONPATH='.'; cd '$root'; python track3_networking/run_grpc_server.py --port 50051" -WindowStyle Minimized
-
-# 3. Track 2 FastAPI Central Orchestrator (:8000)
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "`$env:PYTHONPATH='.'; cd '$root'; uvicorn track2_orchestrator.main:app --host 0.0.0.0 --port 8000 --reload" -WindowStyle Minimized
-
-# 4. Track 1 Worker Node (Inference Engine)
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "`$env:PYTHONPATH='.'; cd '$root'; python track1_worker_node/main.py" -WindowStyle Minimized
-
-Start-Sleep -Seconds 6
+python track1_worker_node/main.py
 ```
 
----
-
-## 🧪 Step 8: Execute 2 Autonomous Verification Tasks
-
-### 🔹 Verification Task 1: Health & Node Registry Check
+3. **Wait until PC 2 is verified as Connected & Active (`is_active: true`) on Main PC (`10.8.2.105`) BEFORE sending any task**:
 ```powershell
-Write-Host "`n=== TASK 1: VERIFYING CLUSTER HEALTH ===" -ForegroundColor Cyan
-$health = Invoke-RestMethod -Uri "http://localhost:8000/health" -Method Get
-Write-Host "Health: $($health | ConvertTo-Json -Compress)" -ForegroundColor Green
-
-$nodes = Invoke-RestMethod -Uri "http://localhost:8000/api/nodes" -Method Get
-Write-Host "Active Nodes: $($nodes | ConvertTo-Json -Compress)" -ForegroundColor Green
-
-if ($health.status -ne "healthy" -or $health.redis -ne "connected") {
-    throw "Task 1 Failed: Orchestrator unhealthy or Redis disconnected."
+$pc2NodeId = "pc2-worker-$env:COMPUTERNAME"
+$connected = $false
+for ($i = 1; $i -le 15; $i++) {
+    $nodes = Invoke-RestMethod -Uri "http://10.8.2.105:8000/api/nodes" -TimeoutSec 5
+    $myNode = $nodes | Where-Object { $_.node_id -eq $pc2NodeId -and $_.is_active -eq $true }
+    if ($myNode) {
+        Write-Host "✅ CONNECTION ESTABLISHED! PC 2 ($pc2NodeId) is LIVE on Main PC (10.8.2.105) [Health: $($myNode.health), CPU: $($myNode.cpu_utilization)%, Free RAM: $($myNode.ram_available_mb) MB]" -ForegroundColor Green
+        $connected = $true
+        break
+    }
+    Write-Host "Waiting for PC 2 worker ($pc2NodeId) to register on Main PC... ($i/15)" -ForegroundColor Yellow
+    Start-Sleep -Seconds 2
 }
-```
-
-### 🔹 Verification Task 2: Live AI Inference & Token Stream (Llama 3.2 1B)
-```powershell
-Write-Host "`n=== TASK 2: VERIFYING END-TO-END INFERENCE STREAM ===" -ForegroundColor Cyan
-python client_submit.py --host localhost --prompt "Explain quantum computing in 2 brief bullet points." --max-tokens 100
+if (-not $connected) { throw "PC 2 worker failed to register on Main PC 10.8.2.105" }
 ```
 
 ---
 
-## 📡 Step 9: Detect LAN IP & Output Instructions for PC 1
+## 🚀 STEP 4: SECOND — Send Tasks from PC 2 & Generate Output on PC 2
+
+Now that PC 2 is connected to Main PC (`10.8.2.105`), send **2 tasks from PC 2** to Main PC (`http://10.8.2.105:8000/api/v1/tasks/submit`).
+- Main PC will immediately display **`📥 Task Received from PC 2`** in its Task Execution Registry.
+- PC 2 (`pc2-worker-$env:COMPUTERNAME`) will pull each task, generate the response using **Llama 3.2 1B on PC 2**, and send the generated output back to Main PC (`⚡ Generated on PC 2`).
 
 ```powershell
-$localIP = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { 
-    $_.IPAddress -notlike "127.*" -and 
-    $_.IPAddress -notlike "169.254.*" -and 
-    $_.InterfaceAlias -notmatch "vEthernet|Loopback"
-} | Select-Object -First 1).IPAddress
+$pc2NodeId = "pc2-worker-$env:COMPUTERNAME"
 
-Write-Host "`n========================================================" -ForegroundColor Green
-Write-Host "🎉 QTHORIUM COMPUTE MESH IS LIVE ON PC 2!" -ForegroundColor Green
-Write-Host "PC 2 LAN IP Address: $localIP" -ForegroundColor Cyan
-Write-Host "========================================================`n" -ForegroundColor Green
+function Send-TaskFromPC2AndWait {
+    param([string]$PromptText, [int]$MaxTokens = 128)
 
-Write-Host "📋 COMMANDS FOR PC 1 (Client Node):" -ForegroundColor Yellow
-Write-Host "1. Install client dependency on PC 1:"
-Write-Host "   pip install httpx" -ForegroundColor White
-Write-Host ""
-Write-Host "2. Test connection from PC 1 to PC 2:"
-Write-Host "   Invoke-RestMethod http://${localIP}:8000/health" -ForegroundColor White
-Write-Host ""
-Write-Host "3. Interactive prompt mode on PC 1:"
-Write-Host "   python client_submit.py --host $localIP --interactive" -ForegroundColor Green
-Write-Host ""
-Write-Host "4. Or submit a single prompt from PC 1:"
-Write-Host "   python client_submit.py --host $localIP --prompt `"What is distributed AI?`" --max-tokens 200" -ForegroundColor Green
-Write-Host "========================================================`n" -ForegroundColor Green
+    $taggedPrompt = "[From PC 2 ($env:COMPUTERNAME)] $PromptText"
+    $body = @{
+        prompt       = $taggedPrompt
+        max_tokens   = $MaxTokens
+        rag_enabled  = $false
+        target_model = "llama3.2:1b"
+    } | ConvertTo-Json
+
+    Write-Host "`n📤 Sending Task from PC 2 to Main PC (10.8.2.105): $taggedPrompt" -ForegroundColor Cyan
+    $submit = Invoke-RestMethod -Uri "http://10.8.2.105:8000/api/v1/tasks/submit" -Method Post -ContentType "application/json" -Body $body -TimeoutSec 15
+    $taskId = $submit.task_id
+    Write-Host "   Task Received by Main PC! Task ID: $taskId (Initial Status: $($submit.status))" -ForegroundColor Yellow
+
+    for ($i = 1; $i -le 45; $i++) {
+        Start-Sleep -Seconds 2
+        $taskInfo = Invoke-RestMethod -Uri "http://10.8.2.105:8000/api/tasks/$taskId" -Method Get -TimeoutSec 5
+        Write-Host "   [$($i*2)s] Status: $($taskInfo.status) | Assigned Node: $($taskInfo.assigned_node_id)" -ForegroundColor Gray
+        if ($taskInfo.status.ToLower() -eq "completed") {
+            Write-Host "`n✅ TASK COMPLETED ON PC 2 ($($taskInfo.assigned_node_id))!" -ForegroundColor Green
+            Write-Host "Generated Output Sent to Main PC:" -ForegroundColor Cyan
+            Write-Host $taskInfo.output -ForegroundColor White
+            return $taskInfo
+        }
+        if ($taskInfo.status.ToLower() -eq "failed") {
+            throw "Task $taskId failed: $($taskInfo.output)"
+        }
+    }
+    throw "Timed out waiting for Task $taskId to complete on PC 2."
+}
+
+# Send Task 1 from PC 2 -> Main PC -> Executed on PC 2
+$result1 = Send-TaskFromPC2AndWait -PromptText "Explain in 2 short bullet points how PC 2 and Main PC collaborate in the QThorium Compute Mesh." -MaxTokens 128
+
+# Send Task 2 from PC 2 -> Main PC -> Executed on PC 2
+$result2 = Send-TaskFromPC2AndWait -PromptText "Write a one-line Python function that calculates the square of a number and show an example." -MaxTokens 128
+```
+
+---
+
+## 📊 STEP 5: Final Verification Report
+
+Print a summary confirming:
+1. **Main PC IP Connected**: `10.8.2.105` (`:8000` HTTP & `:50051` gRPC)
+2. **PC 2 Worker Node ID**: `pc2-worker-<COMPUTERNAME>` (`ONLINE` & `HEALTHY` on Main PC)
+3. **Task 1 & Task 2**: Sent from PC 2, shown on Main PC as **`📥 Task Received from PC 2`**, executed by **PC 2 (`pc2-worker-<COMPUTERNAME>`)**, with full generated Llama 3.2 1B outputs visible on Main PC's dashboard (`http://localhost:3000`).
 ```

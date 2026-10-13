@@ -162,7 +162,7 @@ async def worker_pull_task(payload: WorkerPullPayload, request: Request):
         target_task = pending_tasks[-1]
 
         # If caller is the local fallback worker on Main PC, give remote PC 2 workers
-        # a 4-second priority window on freshly submitted tasks.
+        # a 45-second priority window on freshly submitted tasks (60s if submitted by PC 2).
         if payload.is_local_fallback:
             try:
                 nodes = registry_service.list_nodes()
@@ -172,15 +172,16 @@ async def worker_pull_task(payload: WorkerPullPayload, request: Request):
                     if n.node_id != payload.node_id and n.is_active:
                         try:
                             seen_ts = datetime.fromisoformat(n.last_seen.replace("Z", "+00:00")).timestamp()
-                            if (now_ts - seen_ts) < 25.0:
+                            if (now_ts - seen_ts) < 35.0:
                                 remote_active = True
                                 break
                         except Exception:
                             pass
-                if remote_active:
-                    task_ts = datetime.fromisoformat(target_task.updated_at.replace("Z", "+00:00")).timestamp()
-                    if (now_ts - task_ts) < 4.0:
-                        return {"has_task": False, "reason": "Prioritizing remote worker node"}
+                task_ts = datetime.fromisoformat(target_task.updated_at.replace("Z", "+00:00")).timestamp()
+                age_sec = now_ts - task_ts
+                is_from_pc2 = "pc 2" in target_task.prompt.lower() or "pc2" in target_task.prompt.lower()
+                if (remote_active and age_sec < 45.0) or (is_from_pc2 and age_sec < 60.0):
+                    return {"has_task": False, "reason": "Prioritizing remote PC 2 worker node"}
             except Exception:
                 pass
 

@@ -25,10 +25,18 @@ export const TaskTable: React.FC<TaskTableProps> = ({ tasks }) => {
           ? formatDate(task.updated_at)
           : formatDate(new Date().toISOString());
 
+        const isFromPc2 =
+          task.prompt.toLowerCase().includes('pc 2') ||
+          task.prompt.toLowerCase().includes('pc2') ||
+          (task.assigned_node_id && task.assigned_node_id !== 'gaming-desktop-01');
+
+        const isExecutedOnPc2 =
+          task.assigned_node_id && task.assigned_node_id !== 'gaming-desktop-01';
+
         return (
           <div key={task.task_id} className="card task-item">
             <div className="task-item-header">
-              <div className="task-id-group">
+              <div className="task-id-group" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                 <span className="task-item-id">
                   <span className="task-id-prefix">TASK</span>
                   <span className="task-id-hash">{task.task_id}</span>
@@ -44,6 +52,36 @@ export const TaskTable: React.FC<TaskTableProps> = ({ tasks }) => {
                     <Copy size={13} />
                   )}
                 </button>
+                {isFromPc2 && (
+                  <span
+                    style={{
+                      padding: '2px 8px',
+                      borderRadius: '999px',
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      background: 'rgba(59, 130, 246, 0.15)',
+                      color: '#3B82F6',
+                      border: '1px solid rgba(59, 130, 246, 0.35)',
+                    }}
+                  >
+                    📥 Task Received from PC 2
+                  </span>
+                )}
+                {isExecutedOnPc2 && (
+                  <span
+                    style={{
+                      padding: '2px 8px',
+                      borderRadius: '999px',
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      background: 'rgba(16, 185, 129, 0.15)',
+                      color: '#10B981',
+                      border: '1px solid rgba(16, 185, 129, 0.35)',
+                    }}
+                  >
+                    ⚡ Generated on PC 2 ({task.assigned_node_id})
+                  </span>
+                )}
               </div>
               <div className="task-header-right">
                 <WorkerStatusBadge status={task.status} />
@@ -81,7 +119,9 @@ export const TaskTable: React.FC<TaskTableProps> = ({ tasks }) => {
                       marginBottom: '4px',
                     }}
                   >
-                    Generated Output ({task.assigned_node_id || 'Worker'})
+                    {isExecutedOnPc2
+                      ? `⚡ Generated Output on PC 2 (${task.assigned_node_id})`
+                      : `Generated Output (${task.assigned_node_id || 'Worker'})`}
                   </div>
                   {task.output}
                 </div>
