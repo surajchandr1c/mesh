@@ -5,16 +5,58 @@ import { WorkerDetails } from './pages/WorkerDetails';
 import { Tasks } from './pages/Tasks';
 import { Events } from './pages/Events';
 import { Metrics } from './pages/Metrics';
-import { LayoutDashboard, Server, ClipboardList, Shield, BarChart, Sun, Moon, Layers } from 'lucide-react';
+import { Sidebar, ActiveTab } from './components/Sidebar';
+import { ClipboardList, Sun, Moon, Layers } from 'lucide-react';
+
+const VALID_TABS: ActiveTab[] = ['dashboard', 'workers', 'tasks', 'events', 'metrics'];
+const STORAGE_TAB_KEY = 'websync_active_tab';
+const STORAGE_NODE_KEY = 'websync_selected_node_id';
+const STORAGE_THEME_KEY = 'websync_theme';
+
+function getInitialTab(): ActiveTab {
+  if (typeof window !== 'undefined') {
+    const hash = window.location.hash.replace('#', '').trim().toLowerCase() as ActiveTab;
+    if (VALID_TABS.includes(hash)) {
+      return hash;
+    }
+    const saved = window.localStorage?.getItem(STORAGE_TAB_KEY) as ActiveTab | null;
+    if (saved && VALID_TABS.includes(saved)) {
+      return saved;
+    }
+  }
+  return 'dashboard';
+}
+
+function getInitialNodeId(): string | null {
+  if (typeof window !== 'undefined') {
+    return window.localStorage?.getItem(STORAGE_NODE_KEY) || null;
+  }
+  return null;
+}
+
+function getInitialTheme(): 'dark' | 'light' {
+  if (typeof window !== 'undefined') {
+    const saved = window.localStorage?.getItem(STORAGE_THEME_KEY);
+    if (saved === 'light' || saved === 'dark') {
+      return saved;
+    }
+  }
+  return 'dark';
+}
 
 export const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'workers' | 'tasks' | 'events' | 'metrics'>('dashboard');
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [activeTab, setActiveTab] = useState<ActiveTab>(getInitialTab);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(getInitialNodeId);
+  const [theme, setTheme] = useState<'dark' | 'light'>(getInitialTheme);
 
   const toggleTheme = () => {
     const nextTheme = theme === 'dark' ? 'light' : 'dark';
     setTheme(nextTheme);
+    try {
+      window.localStorage?.setItem(STORAGE_THEME_KEY, nextTheme);
+    } catch {
+      // Ignore storage errors
+    }
     const root = document.documentElement;
     if (nextTheme === 'dark') {
       root.classList.add('dark');
@@ -32,6 +74,43 @@ export const App: React.FC = () => {
       root.classList.remove('dark');
     }
   }, [theme]);
+
+  // Persist activeTab and sync URL hash so refreshing stays on the same page
+  React.useEffect(() => {
+    try {
+      window.localStorage?.setItem(STORAGE_TAB_KEY, activeTab);
+      if (window.location.hash !== `#${activeTab}`) {
+        window.history.replaceState(null, '', `#${activeTab}`);
+      }
+    } catch {
+      // Ignore storage errors
+    }
+  }, [activeTab]);
+
+  // Persist selectedNodeId across refreshes
+  React.useEffect(() => {
+    try {
+      if (selectedNodeId) {
+        window.localStorage?.setItem(STORAGE_NODE_KEY, selectedNodeId);
+      } else {
+        window.localStorage?.removeItem(STORAGE_NODE_KEY);
+      }
+    } catch {
+      // Ignore storage errors
+    }
+  }, [selectedNodeId]);
+
+  // Support browser back/forward hash navigation
+  React.useEffect(() => {
+    const onHashChange = () => {
+      const hash = window.location.hash.replace('#', '').trim().toLowerCase() as ActiveTab;
+      if (VALID_TABS.includes(hash)) {
+        setActiveTab(hash);
+      }
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
 
   const renderActivePage = () => {
     switch (activeTab) {
@@ -58,7 +137,7 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleTabChange = (tab: typeof activeTab) => {
+  const handleTabChange = (tab: ActiveTab) => {
     setActiveTab(tab);
     // Reset worker details navigation whenever tab changes
     setSelectedNodeId(null);
@@ -108,70 +187,8 @@ export const App: React.FC = () => {
 
       {/* Main layout container */}
       <div className="app-layout">
-        {/* Sidebar */}
-        <aside className="sidebar">
-          <div className="sidebar-nav">
-            <span className="sidebar-heading">CONSOLE</span>
-
-            <div
-              className={`sidebar-item ${activeTab === 'dashboard' ? 'active' : ''}`}
-              onClick={() => handleTabChange('dashboard')}
-            >
-              <LayoutDashboard size={18} />
-              <span>Dashboard</span>
-            </div>
-            <div
-              className={`sidebar-item ${activeTab === 'workers' ? 'active' : ''}`}
-              onClick={() => handleTabChange('workers')}
-            >
-              <Server size={18} />
-              <span>Workers</span>
-            </div>
-            <div
-              className={`sidebar-item ${activeTab === 'tasks' ? 'active' : ''}`}
-              onClick={() => handleTabChange('tasks')}
-            >
-              <ClipboardList size={18} />
-              <span>Task Registry</span>
-            </div>
-            <div
-              className={`sidebar-item ${activeTab === 'events' ? 'active' : ''}`}
-              onClick={() => handleTabChange('events')}
-            >
-              <Shield size={18} />
-              <span>Failover Events</span>
-            </div>
-            <div
-              className={`sidebar-item ${activeTab === 'metrics' ? 'active' : ''}`}
-              onClick={() => handleTabChange('metrics')}
-            >
-              <BarChart size={18} />
-              <span>Metrics & Stats</span>
-            </div>
-          </div>
-
-          {/* Sidebar System Footer Card */}
-          <div className="sidebar-footer">
-            <div className="system-status-card">
-              <div className="status-card-header">
-                <span className="status-card-title">LOCAL MESH NODE</span>
-                <span className="status-dot-active" />
-              </div>
-              <div className="status-spec-row">
-                <span className="spec-label">Model:</span>
-                <span className="spec-value">llama3.2:1b</span>
-              </div>
-              <div className="status-spec-row">
-                <span className="spec-label">gRPC:</span>
-                <span className="spec-value">:50051</span>
-              </div>
-              <div className="status-spec-row">
-                <span className="spec-label">Gateway:</span>
-                <span className="spec-value">:8000</span>
-              </div>
-            </div>
-          </div>
-        </aside>
+        {/* Sidebar Component */}
+        <Sidebar activeTab={activeTab} onTabChange={handleTabChange} />
 
         {/* Main Content Area */}
         <main className="main-content">
