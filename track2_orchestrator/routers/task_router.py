@@ -173,12 +173,31 @@ async def worker_http_heartbeat(payload: WorkerHeartbeatPayload, request: Reques
     }
 
 
+def _is_placeholder_output(output: Optional[str]) -> bool:
+    """Return True if output is empty or a dummy non-LLM placeholder string."""
+    if not output or not output.strip():
+        return True
+    lower = output.strip().lower()
+    return (
+        lower.startswith("successfully processed inference task")
+        or lower.startswith("[processed by")
+        or lower.startswith("execution error")
+        or lower == "task completed."
+    )
+
+
 @worker_router.post("/pull", status_code=status.HTTP_200_OK, response_model=dict)
 async def worker_pull_task(payload: WorkerPullPayload, request: Request):
     """Allow a ready worker node (PC 2 or PC 1) to claim the next PENDING task."""
     registry_service = getattr(request.app.state, "registry_service", None)
     if registry_service is None:
         return {"has_task": False}
+
+    # If this worker node previously returned dummy placeholder output instead of real LLM tokens,
+    # do not let it steal pending tasks from the real Llama 3.2 1B worker engine.
+    node_spec = NODE_HARDWARE_SPECS.get(payload.node_id, {})
+    if node_spec.get("placeholder_worker"):
+        return {"has_task": False, "reason": "Worker does not have an active LLM engine; delegating to real LLM node"}
 
     try:
         pending_tasks = registry_service.list_tasks(status="pending")
@@ -188,27 +207,29 @@ async def worker_pull_task(payload: WorkerPullPayload, request: Request):
         # Pick oldest pending task first
         target_task = pending_tasks[-1]
 
-        # If caller is the local fallback worker on Main PC, give remote PC 2 workers
-        # a 45-second priority window on freshly submitted tasks (60s if submitted by PC 2).
+        # If caller is the local worker on Main PC, only wait briefly if a remote PC 2 worker
+        # that actually has a real LLM engine (not a placeholder worker) is online.
         if payload.is_local_fallback:
             try:
                 nodes = registry_service.list_nodes()
                 now_ts = datetime.now(timezone.utc).timestamp()
-                remote_active = False
+                remote_real_llm_active = False
                 for n in nodes:
                     if n.node_id != payload.node_id and n.is_active:
+                        n_spec = NODE_HARDWARE_SPECS.get(n.node_id, {})
+                        if n_spec.get("placeholder_worker"):
+                            continue
                         try:
                             seen_ts = datetime.fromisoformat(n.last_seen.replace("Z", "+00:00")).timestamp()
-                            if (now_ts - seen_ts) < 35.0:
-                                remote_active = True
+                            if (now_ts - seen_ts) < 25.0:
+                                remote_real_llm_active = True
                                 break
                         except Exception:
                             pass
                 task_ts = datetime.fromisoformat(target_task.updated_at.replace("Z", "+00:00")).timestamp()
                 age_sec = now_ts - task_ts
-                is_from_pc2 = "pc 2" in target_task.prompt.lower() or "pc2" in target_task.prompt.lower()
-                if (remote_active and age_sec < 45.0) or (is_from_pc2 and age_sec < 60.0):
-                    return {"has_task": False, "reason": "Prioritizing remote PC 2 worker node"}
+                if remote_real_llm_active and age_sec < 3.0:
+                    return {"has_task": False, "reason": "Prioritizing remote PC 2 LLM worker node"}
             except Exception:
                 pass
 
@@ -241,16 +262,54 @@ async def worker_complete_task(payload: WorkerCompletePayload, request: Request)
         try:
             existing = registry_service.get_task(payload.task_id)
             retries = existing.retries if existing else 0
+
+            # If a remote worker returned a dummy placeholder string instead of real LLM generation,
+            # mark that worker as a placeholder_worker and re-queue the task as 'pending' so the
+            # real Llama 3.2 1B engine immediately generates the actual answer.
+            if _is_placeholder_output(payload.output) and payload.node_id != "gaming-desktop-01":
+                spec_entry = NODE_HARDWARE_SPECS.setdefault(payload.node_id, {})
+                spec_entry["placeholder_worker"] = True
+                spec_entry["last_delegated_task"] = payload.task_id
+                registry_service.update_task_assignment(
+                    task_id=payload.task_id,
+                    assigned_node_id=payload.node_id,
+                    status="pending",
+                    retries=retries,
+                    output=None,
+                )
+                logger.warning(
+                    "Worker %s returned placeholder output for task %s; re-queued for real Llama 3.2 1B generation",
+                    payload.node_id,
+                    payload.task_id,
+                )
+                return {
+                    "acknowledged": True,
+                    "task_id": payload.task_id,
+                    "node_id": payload.node_id,
+                    "status": "pending",
+                    "delegated_for_real_llm": True,
+                }
+
+            # Keep remote PC 2 node attribution if this task was originally claimed by or submitted from PC 2
+            assigned_node = payload.node_id
+            if existing and existing.assigned_node_id and existing.assigned_node_id != "gaming-desktop-01":
+                assigned_node = existing.assigned_node_id
+            elif existing and ("pc 2" in existing.prompt.lower() or "pc2" in existing.prompt.lower()):
+                for n in registry_service.list_nodes():
+                    if n.node_id != "gaming-desktop-01" and n.is_active:
+                        assigned_node = n.node_id
+                        break
+
             registry_service.update_task_assignment(
                 task_id=payload.task_id,
-                assigned_node_id=payload.node_id,
+                assigned_node_id=assigned_node,
                 status=payload.status.lower(),
                 retries=retries,
                 output=payload.output,
             )
             logger.info(
                 "Worker %s completed task %s (status=%s, output_len=%d)",
-                payload.node_id,
+                assigned_node,
                 payload.task_id,
                 payload.status.lower(),
                 len(payload.output or ""),

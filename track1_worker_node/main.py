@@ -212,20 +212,6 @@ def main() -> None:
                     if task:
                         LOGGER.info("Worker [%s] picked up task: %s | Prompt: %s", node_id, task.task_id, task.prompt)
                         try:
-                            from track4_dashboard_ui.track4_dashboard_ui.backend.config import get_default_database_path
-                            from track4_dashboard_ui.track4_dashboard_ui.backend.database.repositories import NodeRepository
-                            repo = NodeRepository(get_default_database_path())
-                            repo.create_or_update_task(
-                                task_id=task.task_id,
-                                prompt=task.prompt,
-                                assigned_node_id=node_id,
-                                status="processing",
-                                max_tokens=task.max_tokens,
-                            )
-                        except Exception:
-                            pass
-
-                        try:
                             chunk_index = 0
                             generated_tokens: list[str] = []
                             # Execute local LLM inference and stream tokens
@@ -270,21 +256,20 @@ def main() -> None:
                                 )
                             except Exception as comp_exc:
                                 LOGGER.warning("HTTP completion report failed for %s: %s", task.task_id, comp_exc)
-
-                            try:
-                                from track4_dashboard_ui.track4_dashboard_ui.backend.config import get_default_database_path
-                                from track4_dashboard_ui.track4_dashboard_ui.backend.database.repositories import NodeRepository
-                                repo = NodeRepository(get_default_database_path())
-                                repo.create_or_update_task(
-                                    task_id=task.task_id,
-                                    prompt=task.prompt,
-                                    assigned_node_id=node_id,
-                                    status="completed",
-                                    max_tokens=task.max_tokens,
-                                    output=full_output,
-                                )
-                            except Exception:
-                                pass
+                                try:
+                                    from track4_dashboard_ui.track4_dashboard_ui.backend.config import get_default_database_path
+                                    from track4_dashboard_ui.track4_dashboard_ui.backend.database.repositories import NodeRepository
+                                    repo = NodeRepository(get_default_database_path())
+                                    repo.create_or_update_task(
+                                        task_id=task.task_id,
+                                        prompt=task.prompt,
+                                        assigned_node_id=node_id,
+                                        status="completed",
+                                        max_tokens=task.max_tokens,
+                                        output=full_output,
+                                    )
+                                except Exception:
+                                    pass
 
                             LOGGER.info(
                                 "Finished execution for task %s on %s | Output (%d chars): %s",
