@@ -19,6 +19,51 @@ function getAuthToken(): string {
   return 'dev-token';
 }
 
+export function getClientId(): string {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      let cid = localStorage.getItem('websync_client_id');
+      if (!cid) {
+        cid = `pc-${Math.random().toString(36).slice(2, 10)}-${Date.now().toString(36)}`;
+        localStorage.setItem('websync_client_id', cid);
+      }
+      return cid;
+    } catch {
+      // ignore storage errors
+    }
+  }
+  return 'pc-default-client';
+}
+
+export function getMySubmittedTaskIds(): string[] {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      const raw = localStorage.getItem('websync_my_tasks');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {
+      // ignore parse errors
+    }
+  }
+  return [];
+}
+
+export function recordSubmittedTaskId(taskId: string): void {
+  if (typeof window !== 'undefined' && window.localStorage && taskId) {
+    try {
+      const existing = getMySubmittedTaskIds();
+      if (!existing.includes(taskId)) {
+        const updated = [taskId, ...existing].slice(0, 200);
+        localStorage.setItem('websync_my_tasks', JSON.stringify(updated));
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }
+}
+
 /**
  * Centralised API request wrapper with timeout, error handling,
  * and AbortController support for cleanup.
@@ -45,6 +90,9 @@ async function request<T>(path: string, signal?: AbortSignal, options?: RequestI
   const headers = new Headers(options?.headers || {});
   if (!headers.has('Authorization')) {
     headers.set('Authorization', `Bearer ${getAuthToken()}`);
+  }
+  if (!headers.has('X-Client-Id')) {
+    headers.set('X-Client-Id', getClientId());
   }
 
   try {
@@ -91,12 +139,13 @@ export const api = {
   getHealth: (signal?: AbortSignal) => request<{ status: string; service?: string; redis?: string }>('/health', signal),
   getNodes: (signal?: AbortSignal) => request<Worker[]>('/api/nodes', signal),
   getNode: (nodeId: string, signal?: AbortSignal) => request<Worker>(`/api/nodes/${encodeURIComponent(nodeId)}`, signal),
-  getTasks: (signal?: AbortSignal) => request<Task[]>('/api/tasks', signal),
+  getTasks: (signal?: AbortSignal) =>
+    request<Task[]>(`/api/tasks?client_id=${encodeURIComponent(getClientId())}`, signal),
   getTask: (taskId: string, signal?: AbortSignal) => request<Task>(`/api/tasks/${encodeURIComponent(taskId)}`, signal),
   getEvents: (signal?: AbortSignal) => request<FailoverEvent[]>('/api/events', signal),
   getMetricsSummary: (signal?: AbortSignal) => request<MetricsSummary>('/api/metrics/summary', signal),
-  submitTask: (payload: { prompt: string; max_tokens?: number; rag_enabled?: boolean; target_model?: string }, signal?: AbortSignal) =>
-    request<{ task_id: string; status: string; message: string; enriched_prompt?: string }>(
+  submitTask: async (payload: { prompt: string; max_tokens?: number; rag_enabled?: boolean; target_model?: string }, signal?: AbortSignal) => {
+    const resp = await request<{ task_id: string; status: string; message: string; enriched_prompt?: string }>(
       '/api/v1/tasks/submit',
       signal,
       {
@@ -104,6 +153,7 @@ export const api = {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${getAuthToken()}`,
+          'X-Client-Id': getClientId(),
         },
         body: JSON.stringify({
           prompt: payload.prompt,
@@ -112,5 +162,10 @@ export const api = {
           target_model: payload.target_model ?? 'llama3.2:1b',
         }),
       }
-    ),
+    );
+    if (resp && resp.task_id) {
+      recordSubmittedTaskId(resp.task_id);
+    }
+    return resp;
+  },
 };

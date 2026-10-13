@@ -16,6 +16,34 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/tasks", tags=["tasks"])
 
 
+import socket
+
+_LOCAL_HOST_IPS: set[str] = {"127.0.0.1", "::1", "localhost", "10.8.2.105"}
+try:
+    for _ip in socket.gethostbyname_ex(socket.gethostname())[2]:
+        _LOCAL_HOST_IPS.add(_ip)
+except Exception:
+    pass
+
+
+def extract_normalized_client_ip(request: Request) -> str:
+    """Extract and normalize the caller's PC IP address."""
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        raw_ip = xff.split(",")[0].strip()
+    elif request.client and request.client.host:
+        raw_ip = request.client.host.strip()
+    else:
+        raw_ip = "127.0.0.1"
+
+    if raw_ip.startswith("::ffff:"):
+        raw_ip = raw_ip.replace("::ffff:", "")
+
+    if raw_ip in _LOCAL_HOST_IPS:
+        return "pc1-local"
+    return raw_ip
+
+
 @router.post("/submit", status_code=status.HTTP_200_OK, response_model=dict)
 async def submit_task(
     payload: TaskRequest,
@@ -34,6 +62,9 @@ async def submit_task(
         user_id=auth.user_id,
     )
 
+    client_id = request.headers.get("x-client-id")
+    client_ip = extract_normalized_client_ip(request)
+
     # Persist the real submitted task into the registry for live Track 4 UI tracking
     registry_service = getattr(request.app.state, "registry_service", None)
     if registry_service is not None:
@@ -43,6 +74,8 @@ async def submit_task(
                 prompt=payload.prompt,
                 max_tokens=payload.max_tokens,
                 status=TaskStatusEnum.PENDING.value,
+                client_id=client_id,
+                client_ip=client_ip,
             )
         except Exception as exc:
             logger.debug("Could not record task in SQLite registry: %s", exc)
@@ -53,6 +86,8 @@ async def submit_task(
         "message": "Task submitted and dispatched to the mesh queue",
         "rag_enabled": payload.rag_enabled,
         "enriched_prompt": result.enriched_prompt,
+        "client_id": client_id,
+        "client_ip": client_ip,
     }
 
 

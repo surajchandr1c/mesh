@@ -159,6 +159,8 @@ class NodeRegistryService:
         retries: int = 0,
         updated_at: Optional[str] = None,
         output: Optional[str] = None,
+        client_id: Optional[str] = None,
+        client_ip: Optional[str] = None,
     ) -> Task:
         """Create or update a real task in the registry repository."""
         if not task_id or not isinstance(task_id, str) or not task_id.strip():
@@ -174,6 +176,8 @@ class NodeRegistryService:
             retries=retries,
             updated_at=updated_at,
             output=output,
+            client_id=client_id.strip() if client_id else None,
+            client_ip=client_ip.strip() if client_ip else None,
         )
 
     def has_failover_event_occurred(self, task_id: str, failed_node_id: str) -> bool:
@@ -199,10 +203,19 @@ class NodeRegistryService:
         return self.repository.get_metrics_raw_data()
 
     def list_tasks(
-        self, status: Optional[str] = None, assigned_node_id: Optional[str] = None
+        self,
+        status: Optional[str] = None,
+        assigned_node_id: Optional[str] = None,
+        client_id: Optional[str] = None,
+        client_ip: Optional[str] = None,
     ) -> List[Task]:
         """List tasks from repository with optional filters."""
-        return self.repository.list_tasks(status, assigned_node_id)
+        return self.repository.list_tasks(
+            status=status,
+            assigned_node_id=assigned_node_id,
+            client_id=client_id,
+            client_ip=client_ip,
+        )
 
     def list_failover_events(self, failed_node_id: Optional[str] = None) -> List[FailoverEvent]:
         """List historical failover events from repository with optional filters."""

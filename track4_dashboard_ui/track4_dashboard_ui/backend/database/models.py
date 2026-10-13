@@ -27,6 +27,8 @@ class Task(BaseModel):
     max_tokens: int = Field(512, description="Max response generation tokens")
     retries: int = Field(0, description="Failover retry count")
     updated_at: str = Field(..., description="UTC ISO-8601 Timestamp of last update")
+    client_id: Optional[str] = Field(None, description="Unique client/browser ID that submitted the task")
+    client_ip: Optional[str] = Field(None, description="Normalized IP address of the PC that submitted the task")
 
 
 class FailoverEvent(BaseModel):

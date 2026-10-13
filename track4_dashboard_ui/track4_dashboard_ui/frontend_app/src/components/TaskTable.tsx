@@ -10,12 +10,20 @@ interface TaskTableProps {
 
 export const TaskTable: React.FC<TaskTableProps> = ({ tasks }) => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [copiedOutputId, setCopiedOutputId] = useState<string | null>(null);
 
   const handleCopy = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     navigator.clipboard.writeText(id);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleCopyOutput = (taskId: string, outputText: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(outputText);
+    setCopiedOutputId(taskId);
+    setTimeout(() => setCopiedOutputId(null), 2000);
   };
 
   return (
@@ -25,13 +33,8 @@ export const TaskTable: React.FC<TaskTableProps> = ({ tasks }) => {
           ? formatDate(task.updated_at)
           : formatDate(new Date().toISOString());
 
-        const isFromPc2 =
-          task.prompt.toLowerCase().includes('pc 2') ||
-          task.prompt.toLowerCase().includes('pc2') ||
-          (task.assigned_node_id && task.assigned_node_id !== 'gaming-desktop-01');
-
-        const isExecutedOnPc2 =
-          task.assigned_node_id && task.assigned_node_id !== 'gaming-desktop-01';
+        const isPendingOrProcessing =
+          task.status.toUpperCase() === 'PENDING' || task.status.toUpperCase() === 'PROCESSING';
 
         return (
           <div key={task.task_id} className="card task-item">
@@ -52,36 +55,19 @@ export const TaskTable: React.FC<TaskTableProps> = ({ tasks }) => {
                     <Copy size={13} />
                   )}
                 </button>
-                {isFromPc2 && (
-                  <span
-                    style={{
-                      padding: '2px 8px',
-                      borderRadius: '999px',
-                      fontSize: '0.72rem',
-                      fontWeight: 700,
-                      background: 'rgba(59, 130, 246, 0.15)',
-                      color: '#3B82F6',
-                      border: '1px solid rgba(59, 130, 246, 0.35)',
-                    }}
-                  >
-                    📥 Task Received from PC 2
-                  </span>
-                )}
-                {isExecutedOnPc2 && (
-                  <span
-                    style={{
-                      padding: '2px 8px',
-                      borderRadius: '999px',
-                      fontSize: '0.72rem',
-                      fontWeight: 700,
-                      background: 'rgba(16, 185, 129, 0.15)',
-                      color: '#10B981',
-                      border: '1px solid rgba(16, 185, 129, 0.35)',
-                    }}
-                  >
-                    ⚡ Generated on PC 2 ({task.assigned_node_id})
-                  </span>
-                )}
+                <span
+                  style={{
+                    padding: '2px 8px',
+                    borderRadius: '999px',
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    background: 'rgba(59, 130, 246, 0.15)',
+                    color: '#3B82F6',
+                    border: '1px solid rgba(59, 130, 246, 0.35)',
+                  }}
+                >
+                  🔒 Your Task (Private to This PC)
+                </span>
               </div>
               <div className="task-header-right">
                 <WorkerStatusBadge status={task.status} />
@@ -94,34 +80,80 @@ export const TaskTable: React.FC<TaskTableProps> = ({ tasks }) => {
                 <p className="task-prompt">{task.prompt}</p>
               </div>
 
+              {!task.output && isPendingOrProcessing && (
+                <div
+                  style={{
+                    marginTop: '10px',
+                    padding: '10px 14px',
+                    backgroundColor: 'rgba(59, 130, 246, 0.08)',
+                    borderLeft: '3px solid #3B82F6',
+                    borderRadius: '6px',
+                    fontSize: '0.84rem',
+                    color: '#60A5FA',
+                    fontWeight: 500,
+                  }}
+                >
+                  ⏳ Generating AI solution for your task on Llama 3.2 1B...
+                </div>
+              )}
+
               {task.output && (
                 <div
                   className="task-output-container"
                   style={{
                     marginTop: '10px',
-                    padding: '10px 14px',
+                    padding: '12px 14px',
                     backgroundColor: '#F8FAFC',
                     borderLeft: '3px solid #10B981',
                     borderRadius: '6px',
                     fontSize: '0.88rem',
                     color: '#1E293B',
                     whiteSpace: 'pre-wrap',
-                    lineHeight: 1.5,
+                    lineHeight: 1.55,
                   }}
                 >
                   <div
                     style={{
-                      fontSize: '0.72rem',
-                      fontWeight: 600,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.04em',
-                      color: '#059669',
-                      marginBottom: '4px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      marginBottom: '6px',
                     }}
                   >
-                    {isExecutedOnPc2
-                      ? `⚡ Generated Output on PC 2 (${task.assigned_node_id})`
-                      : `Generated Output (${task.assigned_node_id || 'Worker'})`}
+                    <span
+                      style={{
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.04em',
+                        color: '#059669',
+                      }}
+                    >
+                      ✨ Generated Solution ({task.assigned_node_id || 'Llama 3.2 1B Worker'})
+                    </span>
+                    <button
+                      className="icon-btn-inline"
+                      onClick={(e) => handleCopyOutput(task.task_id, task.output || '', e)}
+                      title="Copy Generated Solution"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        fontSize: '0.72rem',
+                        color: '#059669',
+                        fontWeight: 600,
+                      }}
+                    >
+                      {copiedOutputId === task.task_id ? (
+                        <>
+                          <Check size={12} style={{ color: '#10B981' }} /> Copied
+                        </>
+                      ) : (
+                        <>
+                          <Copy size={12} /> Copy Answer
+                        </>
+                      )}
+                    </button>
                   </div>
                   {task.output}
                 </div>

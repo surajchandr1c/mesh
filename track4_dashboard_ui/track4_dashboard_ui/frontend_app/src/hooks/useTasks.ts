@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Task } from '../types/task';
-import { api } from '../services/api';
+import { api, getClientId, getMySubmittedTaskIds } from '../services/api';
 
 const POLL_INTERVAL_MS = parseInt(
-  (import.meta as any).env?.VITE_POLL_INTERVAL_MS || '5000',
+  (import.meta as any).env?.VITE_POLL_INTERVAL_MS || '2500',
   10
 );
 
@@ -22,7 +22,15 @@ export function useTasks() {
     try {
       const data = await api.getTasks(controller.signal);
       if (!controller.signal.aborted) {
-        setTasks(data);
+        const myClientId = getClientId();
+        const myLocalTaskIds = new Set(getMySubmittedTaskIds());
+        const ownTasks = data.filter(
+          (t) =>
+            t.client_id === myClientId ||
+            myLocalTaskIds.has(t.task_id) ||
+            (!t.client_id && Boolean(t.client_ip))
+        );
+        setTasks(ownTasks);
         setError(null);
       }
     } catch (err: unknown) {

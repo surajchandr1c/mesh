@@ -39,6 +39,8 @@ class TaskResponse(BaseModel):
     max_tokens: int = Field(..., description="Max token settings")
     retries: int = Field(..., description="Failover retry counts")
     updated_at: str = Field(..., description="UTC ISO-8601 Timestamp of last update")
+    client_id: Optional[str] = Field(None, description="Submitting client/browser ID")
+    client_ip: Optional[str] = Field(None, description="Submitting PC IP address")
 
 
 class EventResponse(BaseModel):

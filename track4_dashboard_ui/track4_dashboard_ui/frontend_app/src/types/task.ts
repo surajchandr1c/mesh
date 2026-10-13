@@ -7,4 +7,6 @@ export interface Task {
   max_tokens: number;
   retries: number;
   updated_at: string;
+  client_id?: string | null;
+  client_ip?: string | null;
 }

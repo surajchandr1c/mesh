@@ -29,8 +29,13 @@ class NodeRepository:
                 conn.commit()
             cursor.execute("PRAGMA table_info(tasks)")
             task_columns = [row[1] for row in cursor.fetchall()]
-            if task_columns and "output" not in task_columns:
-                cursor.execute("ALTER TABLE tasks ADD COLUMN output TEXT")
+            if task_columns:
+                if "output" not in task_columns:
+                    cursor.execute("ALTER TABLE tasks ADD COLUMN output TEXT")
+                if "client_id" not in task_columns:
+                    cursor.execute("ALTER TABLE tasks ADD COLUMN client_id TEXT")
+                if "client_ip" not in task_columns:
+                    cursor.execute("ALTER TABLE tasks ADD COLUMN client_ip TEXT")
                 conn.commit()
         except sqlite3.OperationalError:
             pass
@@ -278,15 +283,18 @@ class NodeRepository:
             row = cursor.fetchone()
             if row is None:
                 return None
+            keys = row.keys()
             return Task(
                 task_id=row["task_id"],
                 assigned_node_id=row["assigned_node_id"],
                 status=row["status"],
                 prompt=row["prompt"],
-                output=row["output"] if "output" in row.keys() else None,
+                output=row["output"] if "output" in keys else None,
                 max_tokens=row["max_tokens"],
                 retries=row["retries"],
                 updated_at=row["updated_at"],
+                client_id=row["client_id"] if "client_id" in keys else None,
+                client_ip=row["client_ip"] if "client_ip" in keys else None,
             )
         finally:
             conn.close()
@@ -341,15 +349,35 @@ class NodeRepository:
         retries: int = 0,
         updated_at: Optional[str] = None,
         output: Optional[str] = None,
+        client_id: Optional[str] = None,
+        client_ip: Optional[str] = None,
     ) -> Task:
-        """Create or update a real task in the registry database."""
+        """Create or update a real task in the registry database with ownership metadata."""
         conn = self._get_connection()
         cursor = conn.cursor()
         now = updated_at or datetime.now(timezone.utc).isoformat()
         try:
             cursor.execute("PRAGMA table_info(tasks)")
             task_cols = [r[1] for r in cursor.fetchall()]
-            if "output" in task_cols:
+            has_client_cols = "client_id" in task_cols and "client_ip" in task_cols
+
+            if has_client_cols and "output" in task_cols:
+                cursor.execute(
+                    """
+                    INSERT INTO tasks (task_id, assigned_node_id, status, prompt, output, max_tokens, retries, updated_at, client_id, client_ip)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(task_id) DO UPDATE SET
+                        assigned_node_id = COALESCE(excluded.assigned_node_id, tasks.assigned_node_id),
+                        status = excluded.status,
+                        output = COALESCE(excluded.output, tasks.output),
+                        retries = excluded.retries,
+                        updated_at = excluded.updated_at,
+                        client_id = COALESCE(excluded.client_id, tasks.client_id),
+                        client_ip = COALESCE(excluded.client_ip, tasks.client_ip)
+                    """,
+                    (task_id, assigned_node_id, status, prompt, output, max_tokens, retries, now, client_id, client_ip),
+                )
+            elif "output" in task_cols:
                 cursor.execute(
                     """
                     INSERT INTO tasks (task_id, assigned_node_id, status, prompt, output, max_tokens, retries, updated_at)
@@ -386,6 +414,8 @@ class NodeRepository:
                 max_tokens=max_tokens,
                 retries=retries,
                 updated_at=now,
+                client_id=client_id,
+                client_ip=client_ip,
             )
         except Exception as e:
             conn.rollback()
@@ -520,9 +550,13 @@ class NodeRepository:
             conn.close()
 
     def list_tasks(
-        self, status: Optional[str] = None, assigned_node_id: Optional[str] = None
+        self,
+        status: Optional[str] = None,
+        assigned_node_id: Optional[str] = None,
+        client_id: Optional[str] = None,
+        client_ip: Optional[str] = None,
     ) -> List[Task]:
-        """List tasks with optional filters."""
+        """List tasks with optional filters including owner client/PC scoping."""
         conn = self._get_connection()
         cursor = conn.cursor()
         query = "SELECT * FROM tasks WHERE 1=1"
@@ -533,6 +567,18 @@ class NodeRepository:
         if assigned_node_id:
             query += " AND assigned_node_id = ?"
             params.append(assigned_node_id)
+
+        # Scoping: If a specific client/PC requested its tasks, strictly filter
+        if client_id and client_ip:
+            query += " AND (client_id = ? OR (client_id IS NULL AND client_ip = ?))"
+            params.extend([client_id, client_ip])
+        elif client_id:
+            query += " AND client_id = ?"
+            params.append(client_id)
+        elif client_ip:
+            query += " AND client_ip = ?"
+            params.append(client_ip)
+
         query += " ORDER BY updated_at DESC"
         try:
             cursor.execute(query, params)
@@ -547,6 +593,8 @@ class NodeRepository:
                     max_tokens=row["max_tokens"],
                     retries=row["retries"],
                     updated_at=row["updated_at"],
+                    client_id=row["client_id"] if "client_id" in row.keys() else None,
+                    client_ip=row["client_ip"] if "client_ip" in row.keys() else None,
                 )
                 for row in rows
             ]
