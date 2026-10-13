@@ -52,6 +52,22 @@ class WorkerMetricsResponse(BaseModel):
 class ResourceMetricsResponse(BaseModel):
     avg_cpu: float
     avg_ram_mb: float
+    hostname: Optional[str] = None
+    os_platform: Optional[str] = None
+    host_cpu_percent: Optional[float] = None
+    cpu_cores_physical: Optional[int] = None
+    cpu_cores_logical: Optional[int] = None
+    cpu_freq_mhz: Optional[float] = None
+    ram_used_mb: Optional[float] = None
+    ram_total_mb: Optional[float] = None
+    ram_used_gb: Optional[float] = None
+    ram_total_gb: Optional[float] = None
+    ram_available_mb: Optional[float] = None
+    ram_percent: Optional[float] = None
+    disk_used_gb: Optional[float] = None
+    disk_total_gb: Optional[float] = None
+    disk_free_gb: Optional[float] = None
+    disk_percent: Optional[float] = None
 
 
 class TaskMetricsResponse(BaseModel):

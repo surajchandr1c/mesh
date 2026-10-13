@@ -1,6 +1,6 @@
 import React from 'react';
 import { useMetrics } from '../hooks/useMetrics';
-import { RefreshCw, Info } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 
 export const Metrics: React.FC = () => {
   const { metrics, loading, error, refresh } = useMetrics();
@@ -62,45 +62,41 @@ export const Metrics: React.FC = () => {
           </div>
         </div>
 
-        {/* Averages Card */}
+        {/* Averages & Real PC Telemetry Card */}
         <div className="card details-panel">
-          <h3 className="panel-title">Telemetry Resource Averages</h3>
+          <h3 className="panel-title">
+            Real-Time PC & Mesh Resource Telemetry ({m.resources.hostname || 'Local PC'})
+          </h3>
           <hr />
           <div className="metrics-rows">
             {_buildMetricRow(
-              "Mean Active CPU utilization",
-              `${m.resources.avg_cpu.toFixed(1)}%`,
-              "Average processing load across all active online node units.",
+              "Host PC CPU Utilization",
+              `${(m.resources.host_cpu_percent ?? m.resources.avg_cpu).toFixed(1)}%`,
+              `Real-time processor load across ${m.resources.cpu_cores_physical || 8} physical cores / ${m.resources.cpu_cores_logical || 12} logical threads.`,
               "green"
             )}
             {_buildMetricRow(
-              "Mean Active RAM available",
-              `${m.resources.avg_ram_mb.toFixed(0)} MB`,
-              "Average available RAM memory across active worker hosts.",
+              "Host PC Memory (RAM) Used",
+              m.resources.ram_used_gb !== undefined
+                ? `${m.resources.ram_used_gb.toFixed(2)} GB / ${m.resources.ram_total_gb?.toFixed(2)} GB (${m.resources.ram_percent?.toFixed(1)}%)`
+                : `${m.resources.avg_ram_mb.toFixed(0)} MB Free`,
+              `Used RAM: ${(m.resources.ram_used_mb ?? 0).toFixed(0)} MB • Available Free RAM: ${(m.resources.ram_available_mb ?? m.resources.avg_ram_mb).toFixed(0)} MB.`,
               "orange"
             )}
+            {m.resources.disk_used_gb !== undefined &&
+              _buildMetricRow(
+                "Host PC Disk Storage Used",
+                `${m.resources.disk_used_gb.toFixed(1)} GB / ${m.resources.disk_total_gb?.toFixed(1)} GB (${m.resources.disk_percent?.toFixed(1)}%)`,
+                `Free storage capacity remaining: ${m.resources.disk_free_gb?.toFixed(1)} GB.`,
+                "blue"
+              )}
+            {_buildMetricRow(
+              "Mesh Active Workers Mean CPU",
+              `${m.resources.avg_cpu.toFixed(1)}%`,
+              "Average processing load reported across all currently online worker nodes.",
+              "purple"
+            )}
           </div>
-        </div>
-
-        {/* Future Time-Series notice */}
-        <div
-          className="card"
-          style={{
-            padding: '16px',
-            backgroundColor: 'rgba(33, 150, 243, 0.08)',
-            border: '1px solid rgba(33, 150, 243, 0.3)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '8px',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#2196F3', fontWeight: 'bold' }}>
-            <Info size={20} />
-            <span>Time-Series Telemetry & Charts</span>
-          </div>
-          <p style={{ fontSize: '12px', lineHeight: '1.6', margin: 0 }}>
-            Historical line charts and resource timeline series represent planned enhancements in Phase 10. The current SQLite schemas log instantaneous telemetry samples. Adding a time-series aggregator backend daemon will allow plotting dynamic historical graphs.
-          </p>
         </div>
       </div>
     </div>

@@ -110,7 +110,8 @@ class WorkerCompletePayload(BaseModel):
 async def worker_http_heartbeat(payload: WorkerHeartbeatPayload, request: Request):
     """Register or refresh a local or remote worker node over HTTP."""
     registry_service = getattr(request.app.state, "registry_service", None)
-    now_iso = datetime.now(timezone.utc).isoformat()
+    now_dt = datetime.now(timezone.utc)
+    now_iso = now_dt.isoformat()
     health = "HEALTHY" if payload.cpu_utilization < 90.0 else "DEGRADED"
 
     if registry_service is not None:
@@ -124,6 +125,16 @@ async def worker_http_heartbeat(payload: WorkerHeartbeatPayload, request: Reques
                 is_active=True,
                 health=health,
             )
+            # Mark any node that hasn't sent a heartbeat in > 25 seconds as offline
+            now_ts = now_dt.timestamp()
+            for n in registry_service.list_nodes():
+                if n.node_id != payload.node_id and n.is_active:
+                    try:
+                        seen_ts = datetime.fromisoformat(n.last_seen.replace("Z", "+00:00")).timestamp()
+                        if (now_ts - seen_ts) > 25.0:
+                            registry_service.repository.mark_offline(n.node_id)
+                    except Exception:
+                        pass
         except Exception as exc:
             logger.warning("Failed to register worker heartbeat in SQLite: %s", exc)
 
