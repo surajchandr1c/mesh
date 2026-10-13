@@ -135,12 +135,19 @@ class NodeRegistryService:
         return self.repository.get_task(task_id.strip())
 
     def update_task_assignment(
-        self, task_id: str, assigned_node_id: Optional[str], status: str, retries: int
+        self,
+        task_id: str,
+        assigned_node_id: Optional[str],
+        status: str,
+        retries: int,
+        output: Optional[str] = None,
     ) -> bool:
         """Update task assignments."""
         if not task_id or not isinstance(task_id, str) or not task_id.strip():
             raise ValueError("task_id must be a non-empty string")
-        return self.repository.update_task_assignment(task_id.strip(), assigned_node_id, status, retries)
+        return self.repository.update_task_assignment(
+            task_id.strip(), assigned_node_id, status, retries, output=output
+        )
 
     def create_or_update_task(
         self,
@@ -151,6 +158,7 @@ class NodeRegistryService:
         max_tokens: int = 512,
         retries: int = 0,
         updated_at: Optional[str] = None,
+        output: Optional[str] = None,
     ) -> Task:
         """Create or update a real task in the registry repository."""
         if not task_id or not isinstance(task_id, str) or not task_id.strip():
@@ -165,6 +173,7 @@ class NodeRegistryService:
             max_tokens=max_tokens,
             retries=retries,
             updated_at=updated_at,
+            output=output,
         )
 
     def has_failover_event_occurred(self, task_id: str, failed_node_id: str) -> bool:

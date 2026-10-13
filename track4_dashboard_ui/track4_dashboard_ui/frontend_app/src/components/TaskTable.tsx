@@ -56,6 +56,37 @@ export const TaskTable: React.FC<TaskTableProps> = ({ tasks }) => {
                 <p className="task-prompt">{task.prompt}</p>
               </div>
 
+              {task.output && (
+                <div
+                  className="task-output-container"
+                  style={{
+                    marginTop: '10px',
+                    padding: '10px 14px',
+                    backgroundColor: '#F8FAFC',
+                    borderLeft: '3px solid #10B981',
+                    borderRadius: '6px',
+                    fontSize: '0.88rem',
+                    color: '#1E293B',
+                    whiteSpace: 'pre-wrap',
+                    lineHeight: 1.5,
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: '0.72rem',
+                      fontWeight: 600,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.04em',
+                      color: '#059669',
+                      marginBottom: '4px',
+                    }}
+                  >
+                    Generated Output ({task.assigned_node_id || 'Worker'})
+                  </div>
+                  {task.output}
+                </div>
+              )}
+
               <div className="task-details-row">
                 <div className="detail-col">
                   <span className="detail-label">

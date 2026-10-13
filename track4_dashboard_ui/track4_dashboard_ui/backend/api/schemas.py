@@ -23,6 +23,7 @@ class TaskResponse(BaseModel):
     assigned_node_id: Optional[str] = Field(None, description="Assigned worker node ID")
     status: str = Field(..., description="Task status ('pending', 'processing', 'completed', 'failed')")
     prompt: str = Field(..., description="LLM prompt text")
+    output: Optional[str] = Field(None, description="Generated LLM response output")
     max_tokens: int = Field(..., description="Max token settings")
     retries: int = Field(..., description="Failover retry counts")
     updated_at: str = Field(..., description="UTC ISO-8601 Timestamp of last update")

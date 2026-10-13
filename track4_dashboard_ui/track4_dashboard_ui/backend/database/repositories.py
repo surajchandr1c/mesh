@@ -27,6 +27,11 @@ class NodeRepository:
             if columns and "health" not in columns:
                 cursor.execute("ALTER TABLE nodes ADD COLUMN health TEXT DEFAULT 'HEALTHY'")
                 conn.commit()
+            cursor.execute("PRAGMA table_info(tasks)")
+            task_columns = [row[1] for row in cursor.fetchall()]
+            if task_columns and "output" not in task_columns:
+                cursor.execute("ALTER TABLE tasks ADD COLUMN output TEXT")
+                conn.commit()
         except sqlite3.OperationalError:
             pass
         finally:
@@ -278,6 +283,7 @@ class NodeRepository:
                 assigned_node_id=row["assigned_node_id"],
                 status=row["status"],
                 prompt=row["prompt"],
+                output=row["output"] if "output" in row.keys() else None,
                 max_tokens=row["max_tokens"],
                 retries=row["retries"],
                 updated_at=row["updated_at"],
@@ -286,21 +292,36 @@ class NodeRepository:
             conn.close()
 
     def update_task_assignment(
-        self, task_id: str, assigned_node_id: Optional[str], status: str, retries: int
+        self,
+        task_id: str,
+        assigned_node_id: Optional[str],
+        status: str,
+        retries: int,
+        output: Optional[str] = None,
     ) -> bool:
-        """Update a task's assignee node, execution status, and retry iteration."""
+        """Update a task's assignee node, execution status, retry iteration, and optional output."""
         conn = self._get_connection()
         cursor = conn.cursor()
         now = datetime.now(timezone.utc).isoformat()
         try:
-            cursor.execute(
-                """
-                UPDATE tasks 
-                SET assigned_node_id = ?, status = ?, retries = ?, updated_at = ? 
-                WHERE task_id = ?
-                """,
-                (assigned_node_id, status, retries, now, task_id),
-            )
+            if output is not None:
+                cursor.execute(
+                    """
+                    UPDATE tasks 
+                    SET assigned_node_id = ?, status = ?, retries = ?, output = ?, updated_at = ? 
+                    WHERE task_id = ?
+                    """,
+                    (assigned_node_id, status, retries, output, now, task_id),
+                )
+            else:
+                cursor.execute(
+                    """
+                    UPDATE tasks 
+                    SET assigned_node_id = ?, status = ?, retries = ?, updated_at = ? 
+                    WHERE task_id = ?
+                    """,
+                    (assigned_node_id, status, retries, now, task_id),
+                )
             affected = cursor.rowcount > 0
             conn.commit()
             return affected
@@ -319,30 +340,49 @@ class NodeRepository:
         max_tokens: int = 512,
         retries: int = 0,
         updated_at: Optional[str] = None,
+        output: Optional[str] = None,
     ) -> Task:
         """Create or update a real task in the registry database."""
         conn = self._get_connection()
         cursor = conn.cursor()
         now = updated_at or datetime.now(timezone.utc).isoformat()
         try:
-            cursor.execute(
-                """
-                INSERT INTO tasks (task_id, assigned_node_id, status, prompt, max_tokens, retries, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(task_id) DO UPDATE SET
-                    assigned_node_id = COALESCE(excluded.assigned_node_id, tasks.assigned_node_id),
-                    status = excluded.status,
-                    retries = excluded.retries,
-                    updated_at = excluded.updated_at
-                """,
-                (task_id, assigned_node_id, status, prompt, max_tokens, retries, now),
-            )
+            cursor.execute("PRAGMA table_info(tasks)")
+            task_cols = [r[1] for r in cursor.fetchall()]
+            if "output" in task_cols:
+                cursor.execute(
+                    """
+                    INSERT INTO tasks (task_id, assigned_node_id, status, prompt, output, max_tokens, retries, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(task_id) DO UPDATE SET
+                        assigned_node_id = COALESCE(excluded.assigned_node_id, tasks.assigned_node_id),
+                        status = excluded.status,
+                        output = COALESCE(excluded.output, tasks.output),
+                        retries = excluded.retries,
+                        updated_at = excluded.updated_at
+                    """,
+                    (task_id, assigned_node_id, status, prompt, output, max_tokens, retries, now),
+                )
+            else:
+                cursor.execute(
+                    """
+                    INSERT INTO tasks (task_id, assigned_node_id, status, prompt, max_tokens, retries, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(task_id) DO UPDATE SET
+                        assigned_node_id = COALESCE(excluded.assigned_node_id, tasks.assigned_node_id),
+                        status = excluded.status,
+                        retries = excluded.retries,
+                        updated_at = excluded.updated_at
+                    """,
+                    (task_id, assigned_node_id, status, prompt, max_tokens, retries, now),
+                )
             conn.commit()
             return Task(
                 task_id=task_id,
                 assigned_node_id=assigned_node_id,
                 status=status,
                 prompt=prompt,
+                output=output,
                 max_tokens=max_tokens,
                 retries=retries,
                 updated_at=now,
@@ -427,7 +467,7 @@ class NodeRepository:
             unhealthy_workers = row[2] or 0 if row else 0
 
             # 3. Busy workers (assigned to active tasks)
-            cursor.execute("SELECT COUNT(DISTINCT assigned_node_id) FROM tasks WHERE status = 'processing'")
+            cursor.execute("SELECT COUNT(DISTINCT assigned_node_id) FROM tasks WHERE LOWER(status) = 'processing'")
             busy_workers = cursor.fetchone()[0] or 0
 
             # 4. Resources
@@ -441,9 +481,9 @@ class NodeRepository:
                 """
                 SELECT 
                     COUNT(*), 
-                    SUM(CASE WHEN status = 'processing' THEN 1 ELSE 0 END), 
-                    SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END), 
-                    SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END), 
+                    SUM(CASE WHEN LOWER(status) = 'processing' THEN 1 ELSE 0 END), 
+                    SUM(CASE WHEN LOWER(status) = 'completed' THEN 1 ELSE 0 END), 
+                    SUM(CASE WHEN LOWER(status) = 'failed' THEN 1 ELSE 0 END), 
                     SUM(retries) 
                 FROM tasks
                 """
@@ -488,11 +528,12 @@ class NodeRepository:
         query = "SELECT * FROM tasks WHERE 1=1"
         params = []
         if status:
-            query += " AND status = ?"
+            query += " AND LOWER(status) = LOWER(?)"
             params.append(status)
         if assigned_node_id:
             query += " AND assigned_node_id = ?"
             params.append(assigned_node_id)
+        query += " ORDER BY updated_at DESC"
         try:
             cursor.execute(query, params)
             rows = cursor.fetchall()
@@ -502,6 +543,7 @@ class NodeRepository:
                     assigned_node_id=row["assigned_node_id"],
                     status=row["status"],
                     prompt=row["prompt"],
+                    output=row["output"] if "output" in row.keys() else None,
                     max_tokens=row["max_tokens"],
                     retries=row["retries"],
                     updated_at=row["updated_at"],

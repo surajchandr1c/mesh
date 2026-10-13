@@ -65,10 +65,164 @@ async def cancel_task(task_id: str, request: Request, auth: AuthToken = Depends(
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Redis service unavailable")
 
     abort_key = RedisKeys.task_abort(task_id)
-    await redis_client.set(abort_key, "1", ex=60)
+    try:
+        await redis_client.set(abort_key, "1", ex=60)
+    except Exception as exc:
+        logger.warning("Could not write abort key to Redis: %s", exc)
     logger.info("Cancellation requested for task %s", task_id)
     return {
         "task_id": task_id,
         "status": "ABORT_SIGNALLED",
         "message": "Task cancellation signal written to Redis abort key",
     }
+
+
+# =====================================================================
+# Distributed HTTP Worker Mesh Coordination Endpoints (PC 1 <-> PC 2)
+# =====================================================================
+from datetime import datetime, timezone
+from typing import Optional
+from pydantic import BaseModel
+
+worker_router = APIRouter(prefix="/api/v1/workers", tags=["workers"])
+
+
+class WorkerHeartbeatPayload(BaseModel):
+    node_id: str
+    cpu_utilization: float = 10.0
+    ram_available_mb: float = 4096.0
+    is_ready: bool = True
+
+
+class WorkerPullPayload(BaseModel):
+    node_id: str
+    is_local_fallback: bool = False
+
+
+class WorkerCompletePayload(BaseModel):
+    task_id: str
+    node_id: str
+    status: str = "completed"
+    output: Optional[str] = None
+
+
+@worker_router.post("/heartbeat", status_code=status.HTTP_200_OK, response_model=dict)
+async def worker_http_heartbeat(payload: WorkerHeartbeatPayload, request: Request):
+    """Register or refresh a local or remote worker node over HTTP."""
+    registry_service = getattr(request.app.state, "registry_service", None)
+    now_iso = datetime.now(timezone.utc).isoformat()
+    health = "HEALTHY" if payload.cpu_utilization < 90.0 else "DEGRADED"
+
+    if registry_service is not None:
+        try:
+            registry_service.repository.register_node(
+                node_id=payload.node_id,
+                last_seen=now_iso,
+                cpu_utilization=payload.cpu_utilization,
+                ram_available_mb=payload.ram_available_mb,
+                is_ready=payload.is_ready,
+                is_active=True,
+                health=health,
+            )
+        except Exception as exc:
+            logger.warning("Failed to register worker heartbeat in SQLite: %s", exc)
+
+    return {
+        "acknowledged": True,
+        "node_id": payload.node_id,
+        "health": health,
+        "timestamp": now_iso,
+    }
+
+
+@worker_router.post("/pull", status_code=status.HTTP_200_OK, response_model=dict)
+async def worker_pull_task(payload: WorkerPullPayload, request: Request):
+    """Allow a ready worker node (PC 2 or PC 1) to claim the next PENDING task."""
+    registry_service = getattr(request.app.state, "registry_service", None)
+    if registry_service is None:
+        return {"has_task": False}
+
+    try:
+        pending_tasks = registry_service.list_tasks(status="pending")
+        if not pending_tasks:
+            return {"has_task": False}
+
+        # Pick oldest pending task first
+        target_task = pending_tasks[-1]
+
+        # If caller is the local fallback worker on Main PC, give remote PC 2 workers
+        # a 4-second priority window on freshly submitted tasks.
+        if payload.is_local_fallback:
+            try:
+                nodes = registry_service.list_nodes()
+                now_ts = datetime.now(timezone.utc).timestamp()
+                remote_active = False
+                for n in nodes:
+                    if n.node_id != payload.node_id and n.is_active:
+                        try:
+                            seen_ts = datetime.fromisoformat(n.last_seen.replace("Z", "+00:00")).timestamp()
+                            if (now_ts - seen_ts) < 25.0:
+                                remote_active = True
+                                break
+                        except Exception:
+                            pass
+                if remote_active:
+                    task_ts = datetime.fromisoformat(target_task.updated_at.replace("Z", "+00:00")).timestamp()
+                    if (now_ts - task_ts) < 4.0:
+                        return {"has_task": False, "reason": "Prioritizing remote worker node"}
+            except Exception:
+                pass
+
+        registry_service.update_task_assignment(
+            task_id=target_task.task_id,
+            assigned_node_id=payload.node_id,
+            status="processing",
+            retries=target_task.retries,
+        )
+        logger.info("Worker %s claimed task %s for processing", payload.node_id, target_task.task_id)
+        return {
+            "has_task": True,
+            "task": {
+                "task_id": target_task.task_id,
+                "prompt": target_task.prompt,
+                "max_tokens": target_task.max_tokens,
+                "assigned_node_id": payload.node_id,
+            },
+        }
+    except Exception as exc:
+        logger.error("Error in worker_pull_task: %s", exc)
+        return {"has_task": False}
+
+
+@worker_router.post("/complete", status_code=status.HTTP_200_OK, response_model=dict)
+async def worker_complete_task(payload: WorkerCompletePayload, request: Request):
+    """Record task completion and generated output from a worker node."""
+    registry_service = getattr(request.app.state, "registry_service", None)
+    if registry_service is not None:
+        try:
+            existing = registry_service.get_task(payload.task_id)
+            retries = existing.retries if existing else 0
+            registry_service.update_task_assignment(
+                task_id=payload.task_id,
+                assigned_node_id=payload.node_id,
+                status=payload.status.lower(),
+                retries=retries,
+                output=payload.output,
+            )
+            logger.info(
+                "Worker %s completed task %s (status=%s, output_len=%d)",
+                payload.node_id,
+                payload.task_id,
+                payload.status.lower(),
+                len(payload.output or ""),
+            )
+        except Exception as exc:
+            logger.error("Failed to record task completion for %s: %s", payload.task_id, exc)
+
+    return {
+        "acknowledged": True,
+        "task_id": payload.task_id,
+        "node_id": payload.node_id,
+        "status": payload.status.lower(),
+    }
+

@@ -102,13 +102,15 @@ class LocalExecutionEngine:
             f"Neither GGUF model ({self.model_path}) nor Ollama model ({self.model_name}) could be initialized."
         )
 
-    def execute_task(self, prompt: str) -> Iterator[str]:
+    def execute_task(self, prompt: str, max_tokens: int = 128) -> Iterator[str]:
         """Yield each generated text token immediately as inference produces it."""
+        effective_max = max(16, min(int(max_tokens or 128), 256))
         if self.backend == "ollama" and ollama is not None:
             client = ollama.Client()
             stream = client.chat(
                 model=self.model_name,
                 messages=[{"role": "user", "content": prompt}],
+                options={"num_predict": effective_max},
                 stream=True,
             )
             for chunk in stream:
@@ -118,6 +120,7 @@ class LocalExecutionEngine:
         elif self.backend == "llama_cpp" and self._llm is not None:
             stream = self._llm.create_chat_completion(
                 messages=[{"role": "user", "content": prompt}],
+                max_tokens=effective_max,
                 stream=True,
             )
             for chunk in stream:
