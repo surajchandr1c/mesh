@@ -67,7 +67,7 @@ export const WorkerTable: React.FC<WorkerTableProps> = ({ workers, onSelectNode 
               <div className="telemetry-meter-group">
                 <div className="meter-label-row">
                   <span className="telemetry-label">
-                    <Cpu size={13} /> CPU Utilization
+                    <Cpu size={13} /> CPU Load {w.cpu_cores_physical ? `(${w.cpu_cores_physical}C/${w.cpu_cores_logical}T)` : ''}
                   </span>
                   <span className="telemetry-value" style={{ color: cpuColor }}>
                     {w.cpu_utilization.toFixed(1)}%
@@ -88,22 +88,56 @@ export const WorkerTable: React.FC<WorkerTableProps> = ({ workers, onSelectNode 
               <div className="telemetry-meter-group">
                 <div className="meter-label-row">
                   <span className="telemetry-label">
-                    <HardDrive size={13} /> Available Memory
+                    <HardDrive size={13} /> RAM Usage ({w.ram_available_mb.toFixed(0)} MB Free)
                   </span>
                   <span className="telemetry-value">
-                    {w.ram_available_mb.toFixed(0)} MB
+                    {w.ram_used_gb !== undefined && w.ram_total_gb !== undefined
+                      ? `${w.ram_used_gb.toFixed(2)} / ${w.ram_total_gb.toFixed(2)} GB`
+                      : `${w.ram_available_mb.toFixed(0)} MB Free`}
                   </span>
                 </div>
                 <div className="meter-bar-track">
                   <div
                     className="meter-bar-fill"
                     style={{
-                      width: `${Math.min(100, Math.max(5, (w.ram_available_mb / 8192) * 100))}%`,
-                      backgroundColor: '#3B82F6',
+                      width: `${Math.min(
+                        100,
+                        Math.max(
+                          5,
+                          w.ram_percent ?? ((16052.1 - w.ram_available_mb) / 16052.1) * 100
+                        )
+                      )}%`,
+                      backgroundColor: '#8B5CF6',
                     }}
                   />
                 </div>
               </div>
+
+              {/* Storage (Disk) Meter */}
+              {w.disk_used_gb !== undefined && w.disk_total_gb !== undefined && (
+                <div className="telemetry-meter-group">
+                  <div className="meter-label-row">
+                    <span className="telemetry-label">
+                      <HardDrive size={13} /> Storage ({(w.disk_free_gb ?? Math.max(0, w.disk_total_gb - w.disk_used_gb)).toFixed(1)} GB Free)
+                    </span>
+                    <span className="telemetry-value">
+                      {w.disk_used_gb.toFixed(1)} / {w.disk_total_gb.toFixed(1)} GB
+                    </span>
+                  </div>
+                  <div className="meter-bar-track">
+                    <div
+                      className="meter-bar-fill"
+                      style={{
+                        width: `${Math.min(
+                          100,
+                          Math.max(5, w.disk_percent ?? (w.disk_used_gb / w.disk_total_gb) * 100)
+                        )}%`,
+                        backgroundColor: '#3B82F6',
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* Model Capability & Protocol Info */}
               <div className="worker-model-info">

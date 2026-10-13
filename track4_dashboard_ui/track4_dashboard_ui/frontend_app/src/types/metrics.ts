@@ -25,8 +25,12 @@ export interface ConnectedNodeDetail {
   ram_percent: number;
   disk_used_gb: number;
   disk_total_gb: number;
+  disk_free_gb?: number;
+  disk_percent?: number;
   health: string;
   is_active: boolean;
+  is_ready?: boolean;
+  last_seen?: string;
 }
 
 export interface ResourceMetrics {

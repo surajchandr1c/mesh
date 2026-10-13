@@ -37,7 +37,13 @@ def list_nodes(
     # Pagination
     start = (page - 1) * page_size
     end = start + page_size
-    return nodes[start:end]
+    sliced = nodes[start:end]
+    try:
+        from ...metrics.aggregator import get_node_live_telemetry, _get_local_host_defaults
+        local_defaults = _get_local_host_defaults()
+        return [NodeResponse(**get_node_live_telemetry(n, local_defaults)) for n in sliced]
+    except Exception:
+        return sliced
 
 
 @router.get("/{node_id}", response_model=NodeResponse)
@@ -54,4 +60,8 @@ def get_node(
     node = registry_service.get_node(node_id)
     if node is None:
         raise HTTPException(status_code=404, detail="Node not found")
-    return node
+    try:
+        from ...metrics.aggregator import get_node_live_telemetry
+        return NodeResponse(**get_node_live_telemetry(node))
+    except Exception:
+        return node

@@ -65,36 +65,38 @@ export const Metrics: React.FC = () => {
         {/* Averages & Real PC Telemetry Card */}
         <div className="card details-panel">
           <h3 className="panel-title">
-            Real-Time PC & Mesh Resource Telemetry ({m.resources.hostname || 'Local PC'})
+            Real-Time Combined & Per-PC Resource Telemetry ({m.resources.hostname || 'Local PC'})
           </h3>
           <hr />
           <div className="metrics-rows">
             {_buildMetricRow(
-              "Host PC CPU Utilization",
+              `Combined CPU Load (${m.resources.connected_pcs_count || 1} Connected PCs)`,
               `${(m.resources.host_cpu_percent ?? m.resources.avg_cpu).toFixed(1)}%`,
               `Real-time processor load across ${m.resources.cpu_cores_physical || 8} physical cores / ${m.resources.cpu_cores_logical || 12} logical threads.`,
               "green"
             )}
             {_buildMetricRow(
-              "Host PC Memory (RAM) Used",
+              `Combined Memory (RAM) Used (${m.resources.connected_pcs_count || 1} Connected PCs)`,
               m.resources.ram_used_gb !== undefined
                 ? `${m.resources.ram_used_gb.toFixed(2)} GB / ${m.resources.ram_total_gb?.toFixed(2)} GB (${m.resources.ram_percent?.toFixed(1)}%)`
                 : `${m.resources.avg_ram_mb.toFixed(0)} MB Free`,
-              `Used RAM: ${(m.resources.ram_used_mb ?? 0).toFixed(0)} MB • Available Free RAM: ${(m.resources.ram_available_mb ?? m.resources.avg_ram_mb).toFixed(0)} MB.`,
+              `Combined Used RAM: ${(m.resources.ram_used_mb ?? 0).toFixed(0)} MB • Combined Free RAM: ${(m.resources.ram_available_mb ?? m.resources.avg_ram_mb).toFixed(0)} MB.`,
               "orange"
             )}
             {m.resources.disk_used_gb !== undefined &&
               _buildMetricRow(
-                "Host PC Disk Storage Used",
+                `Combined Storage (Disk) Used (${m.resources.connected_pcs_count || 1} Connected PCs)`,
                 `${m.resources.disk_used_gb.toFixed(1)} GB / ${m.resources.disk_total_gb?.toFixed(1)} GB (${m.resources.disk_percent?.toFixed(1)}%)`,
-                `Free storage capacity remaining: ${m.resources.disk_free_gb?.toFixed(1)} GB.`,
+                `Combined free storage capacity remaining: ${m.resources.disk_free_gb?.toFixed(1)} GB.`,
                 "blue"
               )}
-            {_buildMetricRow(
-              "Mesh Active Workers Mean CPU",
-              `${m.resources.avg_cpu.toFixed(1)}%`,
-              "Average processing load reported across all currently online worker nodes.",
-              "purple"
+            {(m.resources.connected_nodes_details ?? []).map((pc) =>
+              _buildMetricRow(
+                `🖥️ ${pc.hostname} (${pc.node_id}) — Live Telemetry`,
+                `CPU: ${pc.cpu_utilization.toFixed(1)}% | RAM: ${pc.ram_used_gb.toFixed(2)}/${pc.ram_total_gb.toFixed(2)} GB (${pc.ram_available_mb.toFixed(0)} MB Free) | Disk: ${pc.disk_used_gb.toFixed(1)}/${pc.disk_total_gb.toFixed(1)} GB`,
+                `${pc.role} • ${pc.os_platform} • ${pc.cpu_cores_physical} Cores / ${pc.cpu_cores_logical} Threads • Free Disk: ${(pc.disk_free_gb ?? Math.max(0, pc.disk_total_gb - pc.disk_used_gb)).toFixed(1)} GB.`,
+                "purple"
+              )
             )}
           </div>
         </div>

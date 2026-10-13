@@ -3,7 +3,7 @@ import { Worker } from '../types/worker';
 import { api } from '../services/api';
 
 const POLL_INTERVAL_MS = parseInt(
-  (import.meta as any).env?.VITE_POLL_INTERVAL_MS || '5000',
+  (import.meta as any).env?.VITE_POLL_INTERVAL_MS || '3000',
   10
 );
 

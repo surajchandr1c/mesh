@@ -128,35 +128,39 @@ def main() -> None:
                 while True:
                     now = time.time()
                     health = monitor.get_system_health()
+                    is_ready = (
+                        health["cpu_utilization_percent"] < monitor._cpu_threshold
+                        and health["ram_utilization_percent"] < monitor._ram_threshold
+                    )
 
                     # Send periodic HTTP heartbeat + local SQLite sync every 3s
                     if (now - last_http_heartbeat) >= 3.0:
                         last_http_heartbeat = now
                         LOGGER.info(
-                            "Heartbeat | Node: %s | CPU: %.2f%% | RAM: %.2f%%",
+                            "Heartbeat | Node: %s | CPU: %.1f%% | RAM: %.1f%% (%.0f MB free) | Disk: %.1f/%.1f GB",
                             node_id,
                             health["cpu_utilization_percent"],
                             health["ram_utilization_percent"],
+                            health["ram_available_mb"],
+                            health.get("disk_used_gb", 0.0),
+                            health.get("disk_total_gb", 0.0),
                         )
                         try:
                             import platform
-                            import psutil
-                            vm = psutil.virtual_memory()
-                            dk = psutil.disk_usage("/")
                             await http_client.post(
                                 f"{orchestrator_url}/api/v1/workers/heartbeat",
                                 json={
                                     "node_id": node_id,
                                     "cpu_utilization": health["cpu_utilization_percent"],
                                     "ram_available_mb": health["ram_available_mb"],
-                                    "is_ready": monitor.is_ready_for_task(),
+                                    "is_ready": is_ready,
                                     "hostname": platform.node(),
                                     "os_platform": f"{platform.system()} {platform.release()}",
-                                    "cpu_cores_physical": psutil.cpu_count(logical=False) or 4,
-                                    "cpu_cores_logical": psutil.cpu_count(logical=True) or 8,
-                                    "ram_total_mb": round(vm.total / (1024 ** 2), 1),
-                                    "disk_used_gb": round(dk.used / (1024 ** 3), 2),
-                                    "disk_total_gb": round(dk.total / (1024 ** 3), 2),
+                                    "cpu_cores_physical": health.get("cpu_cores_physical", 8),
+                                    "cpu_cores_logical": health.get("cpu_cores_logical", 12),
+                                    "ram_total_mb": health.get("ram_total_mb", 16052.1),
+                                    "disk_used_gb": health.get("disk_used_gb", 0.0),
+                                    "disk_total_gb": health.get("disk_total_gb", 0.0),
                                 },
                             )
                         except Exception as hb_exc:
@@ -172,14 +176,14 @@ def main() -> None:
                                 last_seen=datetime.now(timezone.utc).isoformat(),
                                 cpu_utilization=health["cpu_utilization_percent"],
                                 ram_available_mb=health["ram_available_mb"],
-                                is_ready=monitor.is_ready_for_task(),
+                                is_ready=is_ready,
                                 is_active=True,
                                 health="HEALTHY" if health["cpu_utilization_percent"] < 90 else "DEGRADED",
                             )
                         except Exception:
                             pass
 
-                    if not monitor.is_ready_for_task():
+                    if not is_ready:
                         LOGGER.warning("System is overloaded; declining the next task.")
                         await asyncio.sleep(HEARTBEAT_INTERVAL_SECONDS)
                         continue

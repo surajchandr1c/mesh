@@ -43,15 +43,63 @@ class ResourceMonitor:
             # Driver tools and GPU queries can fail independently of the worker.
             return {"gpu_available": False}
 
+    def get_disk_metrics(self) -> dict[str, Any]:
+        """Return total, used, and free disk space in GB across local fixed drives."""
+        used_bytes = 0
+        total_bytes = 0
+        seen_mounts: set[str] = set()
+        try:
+            for part in psutil.disk_partitions(all=False):
+                if "cdrom" in part.opts.lower() or not part.fstype:
+                    continue
+                mount = part.mountpoint
+                if mount in seen_mounts:
+                    continue
+                seen_mounts.add(mount)
+                try:
+                    usage = psutil.disk_usage(mount)
+                    used_bytes += usage.used
+                    total_bytes += usage.total
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
+        if total_bytes <= 0:
+            try:
+                usage = psutil.disk_usage("/")
+                used_bytes = usage.used
+                total_bytes = usage.total
+            except Exception:
+                pass
+
+        used_gb = round(used_bytes / (1024 ** 3), 2)
+        total_gb = round(total_bytes / (1024 ** 3), 2)
+        free_gb = round(max(0.0, total_gb - used_gb), 2)
+        disk_pct = round((used_gb / total_gb) * 100.0, 1) if total_gb > 0 else 0.0
+        return {
+            "disk_used_gb": used_gb,
+            "disk_total_gb": total_gb,
+            "disk_free_gb": free_gb,
+            "disk_utilization_percent": disk_pct,
+        }
+
     def get_system_health(self) -> dict[str, Any]:
         """Collect a current, self-contained snapshot of host resource usage."""
         memory = psutil.virtual_memory()
+        total_mb = round(memory.total / (1024 * 1024), 2)
+        avail_mb = round(memory.available / (1024 * 1024), 2)
+        used_mb = round(max(0.0, total_mb - avail_mb), 2)
         health: dict[str, Any] = {
-            "cpu_utilization_percent": psutil.cpu_percent(interval=0.1),
-            "ram_utilization_percent": memory.percent,
-            "ram_available_mb": round(memory.available / (1024 * 1024), 2),
-            "ram_total_mb": round(memory.total / (1024 * 1024), 2),
+            "cpu_utilization_percent": round(float(psutil.cpu_percent(interval=0.1)), 1),
+            "cpu_cores_physical": psutil.cpu_count(logical=False) or 4,
+            "cpu_cores_logical": psutil.cpu_count(logical=True) or 8,
+            "ram_utilization_percent": round(float(memory.percent), 1),
+            "ram_available_mb": avail_mb,
+            "ram_used_mb": used_mb,
+            "ram_total_mb": total_mb,
         }
+        health.update(self.get_disk_metrics())
         health.update(self.get_gpu_metrics())
         return health
 

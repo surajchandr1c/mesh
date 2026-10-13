@@ -14,6 +14,18 @@ class NodeResponse(BaseModel):
     ram_available_mb: float = Field(..., description="Available RAM in megabytes")
     is_ready: bool = Field(..., description="Whether node is ready for tasks")
     health: str = Field(..., description="Health status ('HEALTHY', 'DEGRADED', 'UNHEALTHY')")
+    hostname: Optional[str] = None
+    os_platform: Optional[str] = None
+    role: Optional[str] = None
+    cpu_cores_physical: Optional[int] = None
+    cpu_cores_logical: Optional[int] = None
+    ram_used_gb: Optional[float] = None
+    ram_total_gb: Optional[float] = None
+    ram_percent: Optional[float] = None
+    disk_used_gb: Optional[float] = None
+    disk_total_gb: Optional[float] = None
+    disk_free_gb: Optional[float] = None
+    disk_percent: Optional[float] = None
 
 
 class TaskResponse(BaseModel):

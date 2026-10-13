@@ -201,77 +201,121 @@ export const Dashboard: React.FC = () => {
         {(nodeDetails.length > 0 || workers.length > 0) && (
           <div style={{ marginTop: '20px' }}>
             <h4 style={{ fontSize: '13px', fontWeight: 600, marginBottom: '12px', color: '#94A3B8' }}>
-              Individual Connected PC Breakdown ({nodeDetails.length || workers.filter((w) => w.is_active).length} Connected PCs)
+              Individual Connected PC Breakdown — Live Telemetry ({nodeDetails.length || workers.filter((w) => w.is_active).length} Connected PCs)
             </h4>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '14px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '14px' }}>
               {(nodeDetails.length > 0 ? nodeDetails : workers.filter((w) => w.is_active).map((w) => ({
                 node_id: w.node_id,
-                hostname: w.node_id,
-                os_platform: 'Windows 11',
-                role: w.node_id === 'gaming-desktop-01' ? 'Main PC (Host + Worker)' : 'Connected Remote PC (PC 2)',
+                hostname: w.hostname || w.node_id,
+                os_platform: w.os_platform || 'Windows 11',
+                role: w.role || (w.node_id === 'gaming-desktop-01' ? 'Main PC (Host + Worker)' : 'Connected Remote PC (PC 2)'),
                 cpu_utilization: w.cpu_utilization,
-                cpu_cores_physical: 8,
-                cpu_cores_logical: 12,
-                ram_used_gb: Math.max(0, 15.68 - w.ram_available_mb / 1024),
-                ram_total_gb: 15.68,
+                cpu_cores_physical: w.cpu_cores_physical || 8,
+                cpu_cores_logical: w.cpu_cores_logical || 12,
+                ram_used_gb: w.ram_used_gb ?? Math.max(0, 15.68 - w.ram_available_mb / 1024),
+                ram_total_gb: w.ram_total_gb ?? 15.68,
                 ram_available_mb: w.ram_available_mb,
-                ram_percent: Math.min(100, Math.max(0, ((16056 - w.ram_available_mb) / 16056) * 100)),
-                disk_used_gb: 220,
-                disk_total_gb: 475.6,
+                ram_percent: w.ram_percent ?? Math.min(100, Math.max(0, ((16052.1 - w.ram_available_mb) / 16052.1) * 100)),
+                disk_used_gb: w.disk_used_gb ?? 218.42,
+                disk_total_gb: w.disk_total_gb ?? 475.65,
+                disk_free_gb: w.disk_free_gb ?? 257.23,
+                disk_percent: w.disk_percent ?? 45.9,
                 health: w.health,
                 is_active: w.is_active,
-              }))).map((pc) => (
-                <div
-                  key={pc.node_id}
-                  style={{
-                    padding: '14px 16px',
-                    borderRadius: '10px',
-                    background: 'rgba(59, 130, 246, 0.06)',
-                    border: '1px solid rgba(59, 130, 246, 0.25)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '8px',
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: '14px' }}>
-                        🖥️ {pc.hostname} <span style={{ fontSize: '11px', fontWeight: 500, color: '#94A3B8' }}>({pc.node_id})</span>
-                      </div>
-                      <div style={{ fontSize: '11px', color: '#3B82F6', fontWeight: 600 }}>
-                        {pc.role} • {pc.os_platform}
-                      </div>
-                    </div>
-                    <span
-                      style={{
-                        padding: '2px 8px',
-                        borderRadius: '999px',
-                        fontSize: '11px',
-                        fontWeight: 700,
-                        background: 'rgba(16, 185, 129, 0.15)',
-                        color: '#10B981',
-                      }}
-                    >
-                      ● {pc.health}
-                    </span>
-                  </div>
+              }))).map((pc) => {
+                const pcDiskTotal = pc.disk_total_gb || 475.65;
+                const pcDiskUsed = pc.disk_used_gb || 0;
+                const pcDiskFree = pc.disk_free_gb ?? Math.max(0, pcDiskTotal - pcDiskUsed);
+                const pcDiskPct = pc.disk_percent ?? (pcDiskTotal > 0 ? (pcDiskUsed / pcDiskTotal) * 100 : 0);
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '4px', fontSize: '12px' }}>
-                    <div style={{ background: 'rgba(15, 23, 42, 0.25)', padding: '8px 10px', borderRadius: '6px' }}>
-                      <div style={{ color: '#94A3B8', fontSize: '11px' }}>CPU Utilization</div>
-                      <div style={{ fontWeight: 700, color: '#06B6D4', fontSize: '13px' }}>
-                        {pc.cpu_utilization.toFixed(1)}% ({pc.cpu_cores_physical}C / {pc.cpu_cores_logical}T)
+                return (
+                  <div
+                    key={pc.node_id}
+                    style={{
+                      padding: '14px 16px',
+                      borderRadius: '10px',
+                      background: 'rgba(59, 130, 246, 0.06)',
+                      border: '1px solid rgba(59, 130, 246, 0.25)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '10px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: '14px' }}>
+                          🖥️ {pc.hostname} <span style={{ fontSize: '11px', fontWeight: 500, color: '#94A3B8' }}>({pc.node_id})</span>
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#3B82F6', fontWeight: 600 }}>
+                          {pc.role} • {pc.os_platform}
+                        </div>
                       </div>
+                      <span
+                        style={{
+                          padding: '2px 8px',
+                          borderRadius: '999px',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          background: 'rgba(16, 185, 129, 0.15)',
+                          color: '#10B981',
+                        }}
+                      >
+                        ● {pc.health} (LIVE)
+                      </span>
                     </div>
-                    <div style={{ background: 'rgba(15, 23, 42, 0.25)', padding: '8px 10px', borderRadius: '6px' }}>
-                      <div style={{ color: '#94A3B8', fontSize: '11px' }}>Memory (RAM) Used</div>
-                      <div style={{ fontWeight: 700, color: '#8B5CF6', fontSize: '13px' }}>
-                        {pc.ram_used_gb.toFixed(2)} / {pc.ram_total_gb.toFixed(1)} GB ({pc.ram_available_mb.toFixed(0)} MB Free)
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px', marginTop: '2px', fontSize: '12px' }}>
+                      {/* Per-PC CPU Load */}
+                      <div style={{ background: 'rgba(15, 23, 42, 0.25)', padding: '9px 10px', borderRadius: '6px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                          <span style={{ color: '#94A3B8', fontSize: '11px' }}>CPU Load</span>
+                          <span style={{ fontWeight: 700, color: '#06B6D4', fontSize: '12px' }}>
+                            {pc.cpu_utilization.toFixed(1)}%
+                          </span>
+                        </div>
+                        <div style={{ width: '100%', height: '5px', background: 'rgba(148, 163, 184, 0.2)', borderRadius: '999px', overflow: 'hidden', marginBottom: '4px' }}>
+                          <div style={{ width: `${Math.min(100, Math.max(2, pc.cpu_utilization))}%`, height: '100%', background: getBarColor(pc.cpu_utilization), transition: 'width 0.4s ease' }} />
+                        </div>
+                        <div style={{ color: '#94A3B8', fontSize: '10px' }}>
+                          {pc.cpu_cores_physical} Cores / {pc.cpu_cores_logical} Threads
+                        </div>
+                      </div>
+
+                      {/* Per-PC Memory (RAM) */}
+                      <div style={{ background: 'rgba(15, 23, 42, 0.25)', padding: '9px 10px', borderRadius: '6px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                          <span style={{ color: '#94A3B8', fontSize: '11px' }}>RAM Usage</span>
+                          <span style={{ fontWeight: 700, color: '#8B5CF6', fontSize: '12px' }}>
+                            {pc.ram_used_gb.toFixed(2)} / {pc.ram_total_gb.toFixed(2)} GB ({pc.ram_percent.toFixed(1)}%)
+                          </span>
+                        </div>
+                        <div style={{ width: '100%', height: '5px', background: 'rgba(148, 163, 184, 0.2)', borderRadius: '999px', overflow: 'hidden', marginBottom: '4px' }}>
+                          <div style={{ width: `${Math.min(100, Math.max(2, pc.ram_percent))}%`, height: '100%', background: getBarColor(pc.ram_percent), transition: 'width 0.4s ease' }} />
+                        </div>
+                        <div style={{ color: '#94A3B8', fontSize: '10px' }}>
+                          Free: {pc.ram_available_mb.toFixed(0)} MB ({(pc.ram_available_mb / 1024).toFixed(2)} GB)
+                        </div>
+                      </div>
+
+                      {/* Per-PC Storage (Disk) */}
+                      <div style={{ background: 'rgba(15, 23, 42, 0.25)', padding: '9px 10px', borderRadius: '6px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                          <span style={{ color: '#94A3B8', fontSize: '11px' }}>Storage (Disk)</span>
+                          <span style={{ fontWeight: 700, color: '#3B82F6', fontSize: '12px' }}>
+                            {pcDiskUsed.toFixed(1)} / {pcDiskTotal.toFixed(1)} GB ({pcDiskPct.toFixed(1)}%)
+                          </span>
+                        </div>
+                        <div style={{ width: '100%', height: '5px', background: 'rgba(148, 163, 184, 0.2)', borderRadius: '999px', overflow: 'hidden', marginBottom: '4px' }}>
+                          <div style={{ width: `${Math.min(100, Math.max(2, pcDiskPct))}%`, height: '100%', background: getBarColor(pcDiskPct), transition: 'width 0.4s ease' }} />
+                        </div>
+                        <div style={{ color: '#94A3B8', fontSize: '10px' }}>
+                          Free Storage: {pcDiskFree.toFixed(1)} GB
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
