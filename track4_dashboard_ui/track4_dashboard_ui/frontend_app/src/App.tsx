@@ -74,7 +74,7 @@ export const App: React.FC = () => {
               <Layers size={20} />
             </div>
             <div className="app-title-group">
-              <span className="app-title">QTHORIUM</span>
+              <span className="app-title">WebSync AI</span>
               <span className="app-tag">COMPUTE MESH</span>
             </div>
           </div>
