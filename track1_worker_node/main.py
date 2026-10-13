@@ -139,6 +139,10 @@ def main() -> None:
                             health["ram_utilization_percent"],
                         )
                         try:
+                            import platform
+                            import psutil
+                            vm = psutil.virtual_memory()
+                            dk = psutil.disk_usage("/")
                             await http_client.post(
                                 f"{orchestrator_url}/api/v1/workers/heartbeat",
                                 json={
@@ -146,6 +150,13 @@ def main() -> None:
                                     "cpu_utilization": health["cpu_utilization_percent"],
                                     "ram_available_mb": health["ram_available_mb"],
                                     "is_ready": monitor.is_ready_for_task(),
+                                    "hostname": platform.node(),
+                                    "os_platform": f"{platform.system()} {platform.release()}",
+                                    "cpu_cores_physical": psutil.cpu_count(logical=False) or 4,
+                                    "cpu_cores_logical": psutil.cpu_count(logical=True) or 8,
+                                    "ram_total_mb": round(vm.total / (1024 ** 2), 1),
+                                    "disk_used_gb": round(dk.used / (1024 ** 3), 2),
+                                    "disk_total_gb": round(dk.total / (1024 ** 3), 2),
                                 },
                             )
                         except Exception as hb_exc:

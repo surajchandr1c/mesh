@@ -87,11 +87,22 @@ from pydantic import BaseModel
 worker_router = APIRouter(prefix="/api/v1/workers", tags=["workers"])
 
 
+# Live per-node hardware metadata reported by connected workers
+NODE_HARDWARE_SPECS: dict[str, dict] = {}
+
+
 class WorkerHeartbeatPayload(BaseModel):
     node_id: str
     cpu_utilization: float = 10.0
     ram_available_mb: float = 4096.0
     is_ready: bool = True
+    hostname: Optional[str] = None
+    os_platform: Optional[str] = None
+    cpu_cores_physical: Optional[int] = None
+    cpu_cores_logical: Optional[int] = None
+    ram_total_mb: Optional[float] = None
+    disk_used_gb: Optional[float] = None
+    disk_total_gb: Optional[float] = None
 
 
 class WorkerPullPayload(BaseModel):
@@ -113,6 +124,22 @@ async def worker_http_heartbeat(payload: WorkerHeartbeatPayload, request: Reques
     now_dt = datetime.now(timezone.utc)
     now_iso = now_dt.isoformat()
     health = "HEALTHY" if payload.cpu_utilization < 90.0 else "DEGRADED"
+
+    spec_entry = NODE_HARDWARE_SPECS.setdefault(payload.node_id, {})
+    if payload.hostname:
+        spec_entry["hostname"] = payload.hostname
+    if payload.os_platform:
+        spec_entry["os_platform"] = payload.os_platform
+    if payload.cpu_cores_physical:
+        spec_entry["cpu_cores_physical"] = payload.cpu_cores_physical
+    if payload.cpu_cores_logical:
+        spec_entry["cpu_cores_logical"] = payload.cpu_cores_logical
+    if payload.ram_total_mb:
+        spec_entry["ram_total_mb"] = payload.ram_total_mb
+    if payload.disk_used_gb is not None:
+        spec_entry["disk_used_gb"] = payload.disk_used_gb
+    if payload.disk_total_gb is not None:
+        spec_entry["disk_total_gb"] = payload.disk_total_gb
 
     if registry_service is not None:
         try:

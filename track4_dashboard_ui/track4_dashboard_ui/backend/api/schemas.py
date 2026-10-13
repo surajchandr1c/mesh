@@ -54,6 +54,7 @@ class ResourceMetricsResponse(BaseModel):
     avg_ram_mb: float
     hostname: Optional[str] = None
     os_platform: Optional[str] = None
+    connected_pcs_count: Optional[int] = None
     host_cpu_percent: Optional[float] = None
     cpu_cores_physical: Optional[int] = None
     cpu_cores_logical: Optional[int] = None
@@ -68,6 +69,7 @@ class ResourceMetricsResponse(BaseModel):
     disk_total_gb: Optional[float] = None
     disk_free_gb: Optional[float] = None
     disk_percent: Optional[float] = None
+    connected_nodes_details: Optional[List[Dict]] = None
 
 
 class TaskMetricsResponse(BaseModel):
